@@ -25,7 +25,12 @@ import {
   Sun,
   Moon,
   Plane,
-  BarChart3
+  BarChart3,
+  File,
+  Paperclip,
+  Image as ImageIcon,
+  FileText,
+  X
 } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { 
@@ -45,7 +50,7 @@ import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { TripData, CountryVisit, DayPlan, Activity } from './types';
+import { TripData, CountryVisit, DayPlan, Activity, Attachment } from './types';
 import { TripMap } from './components/TripMap';
 import { Logo } from './components/Logo';
 import { EUROPE_DATA } from './constants';
@@ -63,6 +68,8 @@ export default function App() {
     countries: [],
     dailyPlans: []
   });
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
 
   // Handle theme
   useEffect(() => {
@@ -302,18 +309,74 @@ export default function App() {
     }));
   };
 
-  const resetTrip = () => {
-    if (window.confirm('¿Estás seguro de que quieres reiniciar todo tu viaje? Se borrarán todos los datos y volverás al inicio.')) {
-      localStorage.clear();
-      setTrip({
-        arrivalDate: '',
-        departureDate: '',
-        countries: [],
-        dailyPlans: []
+  const handleFileChange = async (dateStr: string, activityId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments: Attachment[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isImage = file.type.startsWith('image/');
+      const isPdf = file.type === 'application/pdf';
+
+      if (!isImage && !isPdf) continue;
+
+      const reader = new FileReader();
+      const data = await new Promise<string>((resolve) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.readAsDataURL(file);
       });
-      setStep('setup');
-      window.location.reload(); // Force reload to ensure clean state
+
+      newAttachments.push({
+        id: Math.random().toString(36).substr(2, 9),
+        name: file.name,
+        type: isImage ? 'image' : 'pdf',
+        data
+      });
     }
+
+    setTrip(prev => ({
+      ...prev,
+      dailyPlans: prev.dailyPlans.map(p => 
+        p.date === dateStr ? {
+          ...p,
+          activities: p.activities.map(a => 
+            a.id === activityId ? { ...a, attachments: [...(a.attachments || []), ...newAttachments] } : a
+          )
+        } : p
+      )
+    }));
+  };
+
+  const removeAttachment = (dateStr: string, activityId: string, attachmentId: string) => {
+    setTrip(prev => ({
+      ...prev,
+      dailyPlans: prev.dailyPlans.map(p => 
+        p.date === dateStr ? {
+          ...p,
+          activities: p.activities.map(a => 
+            a.id === activityId ? {
+              ...a,
+              attachments: a.attachments?.filter(att => att.id !== attachmentId)
+            } : a
+          )
+        } : p
+      )
+    }));
+  };
+
+  const confirmReset = () => {
+    localStorage.clear();
+    setTrip({
+      arrivalDate: '',
+      departureDate: '',
+      countries: [],
+      dailyPlans: []
+    });
+    setStep('setup');
+    setShowResetModal(false);
+    window.location.reload();
   };
 
   const todayPlan = useMemo(() => {
@@ -372,21 +435,6 @@ export default function App() {
           </motion.a>
           
           <div className="flex items-center gap-4">
-            {trip.arrivalDate && (
-              <nav className="hidden md:flex items-center gap-1 bg-stone-100 dark:bg-stone-900 p-1 rounded-2xl">
-                <button 
-                  onClick={() => setStep('dashboard')}
-                  className={cn(
-                    "px-6 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2",
-                    step === 'dashboard' ? "bg-white dark:bg-stone-800 shadow-sm text-blue-900 dark:text-blue-400" : "text-stone-500 hover:text-stone-800 dark:hover:text-stone-200"
-                  )}
-                >
-                  <LayoutDashboard size={18} />
-                  Tablero
-                </button>
-              </nav>
-            )}
-
             <button 
               onClick={toggleTheme}
               className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:text-blue-900 dark:hover:text-blue-400 transition-all"
@@ -395,7 +443,7 @@ export default function App() {
             </button>
 
             <button 
-              onClick={resetTrip}
+              onClick={() => setShowResetModal(true)}
               className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all shadow-sm"
               title="Reiniciar viaje"
             >
@@ -420,13 +468,13 @@ export default function App() {
                   href="/"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="w-[20rem] h-[20rem] mx-auto mb-12 block cursor-pointer"
+                  className="w-[12rem] h-[12rem] mx-auto mb-12 block cursor-pointer"
                   onClick={(e) => e.preventDefault()}
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <h2 className="font-serif text-[10rem] leading-none mb-10 tracking-tighter text-blue-900 dark:text-blue-400 font-black">SKY</h2>
-                <p className="text-stone-500 dark:text-stone-400 text-4xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo por Europa.</p>
+                <h2 className="font-serif text-[8rem] leading-none mb-10 tracking-tighter text-blue-900 dark:text-blue-400 font-black">SKY</h2>
+                <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo por Europa.</p>
               </div>
 
               <form onSubmit={handleSetupSubmit} className="glass-card p-10 space-y-8 max-w-md mx-auto">
@@ -817,7 +865,7 @@ export default function App() {
                                     className="bg-transparent text-sm font-mono text-stone-500 outline-none focus:text-blue-900 dark:focus:text-blue-400"
                                   />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 space-y-2">
                                   <input 
                                     type="text" 
                                     placeholder="¿Qué planes tienes?"
@@ -825,14 +873,49 @@ export default function App() {
                                     onChange={e => updateActivity(day.date, activity.id, 'description', e.target.value)}
                                     className="w-full bg-transparent outline-none text-stone-700 dark:text-stone-300 placeholder:text-stone-300 focus:placeholder:text-stone-400"
                                   />
+                                  
+                                  {/* Attachments List */}
+                                  {activity.attachments && activity.attachments.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                      {activity.attachments.map(att => (
+                                        <div key={att.id} className="group/att relative flex items-center gap-2 px-2 py-1 bg-stone-100 dark:bg-stone-800 rounded-lg text-[10px] font-medium text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700">
+                                          <button 
+                                            onClick={() => setViewingAttachment(att)}
+                                            className="flex items-center gap-1 hover:text-blue-900 dark:hover:text-blue-400"
+                                          >
+                                            {att.type === 'image' ? <ImageIcon size={12} /> : <FileText size={12} />}
+                                            <span className="max-w-[100px] truncate">{att.name}</span>
+                                          </button>
+                                          <button 
+                                            onClick={() => removeAttachment(day.date, activity.id, att.id)}
+                                            className="text-stone-400 hover:text-red-500 transition-colors"
+                                          >
+                                            <X size={10} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                                <button 
-                                  onClick={() => removeActivity(day.date, activity.id)}
-                                  className="text-stone-300 hover:text-red-500 transition-all p-1"
-                                  title="Eliminar actividad"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <label className="cursor-pointer text-stone-300 hover:text-blue-900 dark:hover:text-blue-400 p-1 transition-all">
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      multiple
+                                      accept="image/*,application/pdf"
+                                      onChange={(e) => handleFileChange(day.date, activity.id, e)}
+                                    />
+                                    <Paperclip size={16} />
+                                  </label>
+                                  <button 
+                                    onClick={() => removeActivity(day.date, activity.id)}
+                                    className="text-stone-300 hover:text-red-500 transition-all p-1"
+                                    title="Eliminar actividad"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
                               </div>
                             ))}
 
@@ -873,6 +956,103 @@ export default function App() {
           SKY &copy; {new Date().getFullYear()} — Tu compañero de aventuras.
         </p>
       </footer>
+      {/* Modals */}
+      <AnimatePresence>
+        {showResetModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetModal(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white dark:bg-stone-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-stone-200 dark:border-stone-800"
+            >
+              <div className="p-8 text-center">
+                <div className="w-full aspect-video mb-6 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
+                  <img 
+                    src="https://i.ibb.co/TxV4pMjX/image.png" 
+                    alt="Pregunta" 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <h3 className="font-serif text-2xl mb-2 text-stone-800 dark:text-stone-200">¿Estás seguro?</h3>
+                <p className="text-stone-500 dark:text-stone-400 mb-8">
+                  Se borrarán todos los datos de tu viaje y volverás al inicio. Esta acción no se puede deshacer.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowResetModal(false)}
+                    className="flex-1 py-4 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={confirmReset}
+                    className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-200 dark:shadow-none"
+                  >
+                    Sí, reiniciar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {viewingAttachment && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingAttachment(null)}
+              className="absolute inset-0 bg-stone-900/90 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative w-full max-w-5xl h-[80vh] bg-white dark:bg-stone-900 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col"
+            >
+              <div className="p-6 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
+                    {viewingAttachment.type === 'image' ? <ImageIcon size={20} /> : <FileText size={20} />}
+                  </div>
+                  <h4 className="font-bold text-stone-800 dark:text-stone-200">{viewingAttachment.name}</h4>
+                </div>
+                <button 
+                  onClick={() => setViewingAttachment(null)}
+                  className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-xl transition-all"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-stone-50 dark:bg-stone-950">
+                {viewingAttachment.type === 'image' ? (
+                  <img 
+                    src={viewingAttachment.data} 
+                    alt={viewingAttachment.name} 
+                    className="max-w-full max-h-full object-contain shadow-xl rounded-xl"
+                  />
+                ) : (
+                  <iframe 
+                    src={viewingAttachment.data} 
+                    className="w-full h-full rounded-xl border-none"
+                    title={viewingAttachment.name}
+                  />
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

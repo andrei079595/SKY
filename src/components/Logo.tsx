@@ -6,7 +6,7 @@ interface LogoProps {
 
 export const Logo: React.FC<LogoProps> = ({ className }) => {
   return (
-    <div className={`overflow-hidden bg-transparent flex items-center justify-center ${className}`}>
+    <div className={`bg-transparent flex items-center justify-center p-4 ${className}`}>
       <img 
         src="https://i.ibb.co/yBPGWFwh/image.png" 
         alt="SKY Logo" 

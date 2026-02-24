@@ -1,7 +1,15 @@
+export interface Attachment {
+  id: string;
+  name: string;
+  type: 'image' | 'pdf';
+  data: string; // base64
+}
+
 export interface Activity {
   id: string;
   time: string;
   description: string;
+  attachments?: Attachment[];
 }
 
 export interface CountryVisit {
