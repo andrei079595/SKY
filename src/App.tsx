@@ -61,7 +61,7 @@ function cn(...inputs: ClassValue[]) {
 
 export default function App() {
   const [step, setStep] = useState<'setup' | 'countries' | 'dashboard' | 'table'>('setup');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [trip, setTrip] = useState<TripData>({
     arrivalDate: '',
     departureDate: '',
@@ -77,6 +77,9 @@ export default function App() {
     if (savedTheme) {
       setTheme(savedTheme);
       document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    } else {
+      // Default to dark if no theme is saved
+      document.documentElement.classList.add('dark');
     }
   }, []);
 
@@ -432,7 +435,7 @@ export default function App() {
           >
             <Logo className="w-32 h-32" />
             <span className="font-serif text-xl font-medium tracking-tight text-blue-900 dark:text-blue-400 italic">
-              ¡Tu mejor compañero de viaje!
+              ¡Tu mejor amigo!
             </span>
           </motion.a>
           
@@ -475,7 +478,6 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <h2 className="font-serif text-[8rem] leading-none mb-10 tracking-tighter text-blue-900 dark:text-blue-400 font-black">SKY</h2>
                 <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo por Europa.</p>
               </div>
 
