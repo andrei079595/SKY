@@ -974,11 +974,11 @@ export default function App() {
               className="relative w-full max-w-md bg-white dark:bg-stone-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-stone-200 dark:border-stone-800"
             >
               <div className="p-8 text-center">
-                <div className="w-full aspect-video mb-6 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 flex items-center justify-center">
+                <div className="w-full aspect-video mb-6 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 flex items-center justify-center p-4">
                   <img 
                     src="https://i.ibb.co/TxV4pMjX/image.png" 
                     alt="Pregunta" 
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                     referrerPolicy="no-referrer"
                   />
                 </div>

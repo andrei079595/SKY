@@ -8,7 +8,7 @@ export const Logo: React.FC<LogoProps> = ({ className }) => {
   return (
     <div className={`bg-transparent flex items-center justify-center p-4 ${className}`}>
       <img 
-        src="https://i.ibb.co/yBPGWFwh/image.png" 
+        src="https://i.ibb.co/5gXX5bgD/image.png" 
         alt="SKY Logo" 
         className="h-full w-full object-contain"
         onError={(e) => {

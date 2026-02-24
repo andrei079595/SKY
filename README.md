@@ -2,7 +2,7 @@
 
 **SKY** es una aplicación web moderna y elegante diseñada para planificar tu aventura europea perfecta. Con una interfaz centrada en la experiencia del usuario, SKY te permite organizar tu itinerario, visualizar tu ruta en un mapa interactivo y analizar la distribución de tu tiempo por país.
 
-![SKY Logo](https://i.ibb.co/yBPGWFwh/image.png)
+![SKY Logo](https://i.ibb.co/5gXX5bgD/image.png)
 
 ## ✨ Características Principales
 
