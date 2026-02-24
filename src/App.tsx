@@ -424,14 +424,16 @@ export default function App() {
             href="/"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-5 cursor-pointer" 
+            className="flex items-center gap-4 cursor-pointer" 
             onClick={(e) => {
               e.preventDefault();
               trip.arrivalDate ? setStep('dashboard') : setStep('setup');
             }}
           >
-            <Logo className="w-24 h-24" />
-            <h1 className="font-serif text-5xl font-black tracking-tighter text-blue-900 dark:text-blue-400">SKY</h1>
+            <Logo className="w-32 h-32" />
+            <span className="font-serif text-xl font-medium tracking-tight text-blue-900 dark:text-blue-400 italic">
+              ¡Tu mejor compañero de viaje!
+            </span>
           </motion.a>
           
           <div className="flex items-center gap-4">
@@ -674,10 +676,26 @@ export default function App() {
                       <div className="flex flex-wrap gap-3">
                         {todayPlan.activities.length > 0 ? (
                           todayPlan.activities.map(a => (
-                            <span key={a.id} className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl text-sm font-semibold text-stone-700 dark:text-stone-300 shadow-sm">
-                              <span className="text-blue-900 dark:text-blue-400 mr-2">{a.time}</span>
-                              {a.description || 'Sin descripción'}
-                            </span>
+                            <div key={a.id} className="flex flex-col gap-2">
+                              <span className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl text-sm font-semibold text-stone-700 dark:text-stone-300 shadow-sm">
+                                <span className="text-blue-900 dark:text-blue-400 mr-2">{a.time}</span>
+                                {a.description || 'Sin descripción'}
+                              </span>
+                              {a.attachments && a.attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 pl-2">
+                                  {a.attachments.map(att => (
+                                    <button 
+                                      key={att.id}
+                                      onClick={() => setViewingAttachment(att)}
+                                      className="flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-[10px] font-bold text-blue-900 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all"
+                                    >
+                                      {att.type === 'image' ? <ImageIcon size={10} /> : <FileText size={10} />}
+                                      <span className="max-w-[80px] truncate">{att.name}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))
                         ) : (
                           <span className="text-stone-400 text-base italic">No hay actividades para hoy</span>
@@ -897,8 +915,8 @@ export default function App() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <label className="cursor-pointer text-stone-300 hover:text-blue-900 dark:hover:text-blue-400 p-1 transition-all">
+                                <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                  <label className="cursor-pointer text-stone-400 md:text-stone-300 hover:text-blue-900 dark:hover:text-blue-400 p-1 transition-all">
                                     <input 
                                       type="file" 
                                       className="hidden" 
