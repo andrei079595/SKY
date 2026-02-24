@@ -355,20 +355,20 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-20 selection:bg-blue-500/30">
       {/* Header */}
-      <header className="bg-[var(--card-bg)] backdrop-blur-xl border-b border-[var(--card-border)] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-64 flex items-center justify-between">
+      <header className="bg-[var(--card-bg)] backdrop-blur-xl border-b border-[var(--card-border)]">
+        <div className="max-w-7xl mx-auto px-6 h-32 flex items-center justify-between">
           <motion.a 
             href="/"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-10 cursor-pointer" 
+            className="flex items-center gap-5 cursor-pointer" 
             onClick={(e) => {
               e.preventDefault();
               trip.arrivalDate ? setStep('dashboard') : setStep('setup');
             }}
           >
-            <Logo className="w-48 h-48" />
-            <h1 className="font-serif text-9xl font-black tracking-tighter text-blue-900 dark:text-blue-400">SKY</h1>
+            <Logo className="w-24 h-24" />
+            <h1 className="font-serif text-5xl font-black tracking-tighter text-blue-900 dark:text-blue-400">SKY</h1>
           </motion.a>
           
           <div className="flex items-center gap-4">
@@ -420,12 +420,12 @@ export default function App() {
                   href="/"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="w-[40rem] h-[40rem] mx-auto mb-12 block cursor-pointer"
+                  className="w-[20rem] h-[20rem] mx-auto mb-12 block cursor-pointer"
                   onClick={(e) => e.preventDefault()}
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <h2 className="font-serif text-[20rem] leading-none mb-10 tracking-tighter text-blue-900 dark:text-blue-400 font-black">SKY</h2>
+                <h2 className="font-serif text-[10rem] leading-none mb-10 tracking-tighter text-blue-900 dark:text-blue-400 font-black">SKY</h2>
                 <p className="text-stone-500 dark:text-stone-400 text-4xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo por Europa.</p>
               </div>
 
