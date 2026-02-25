@@ -16,6 +16,8 @@ import {
   MapPin, 
   ChevronRight, 
   ChevronLeft, 
+  ChevronDown,
+  Filter,
   Save, 
   Edit3, 
   LayoutDashboard, 
@@ -70,6 +72,9 @@ export default function App() {
   });
   const [showResetModal, setShowResetModal] = useState(false);
   const [viewingAttachment, setViewingAttachment] = useState<Attachment | null>(null);
+  const [filterDate, setFilterDate] = useState<string>('');
+  const [filterCountry, setFilterCountry] = useState<string>('');
+  const [filterCity, setFilterCity] = useState<string>('');
 
   // Handle theme
   useEffect(() => {
@@ -478,7 +483,7 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo por Europa.</p>
+                <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo.</p>
               </div>
 
               <form onSubmit={handleSetupSubmit} className="glass-card p-10 space-y-8 max-w-md mx-auto">
@@ -548,7 +553,7 @@ export default function App() {
                       <select 
                         value={country.name}
                         onChange={e => updateCountry(country.id, 'name', e.target.value)}
-                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-transparent"
+                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-white text-black rounded-t-lg"
                       >
                         {Object.keys(EUROPE_DATA).map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -560,7 +565,7 @@ export default function App() {
                       <select 
                         value={country.city}
                         onChange={e => updateCountry(country.id, 'city', e.target.value)}
-                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-transparent"
+                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-white text-black rounded-t-lg"
                       >
                         {Object.keys(EUROPE_DATA[country.name]?.cities || {}).map(city => (
                           <option key={city} value={city}>{city}</option>
@@ -815,18 +820,79 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-4 border-t border-stone-200">
-                <div>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4 border-t border-stone-200">
+                <div className="flex-1">
                   <h2 className="font-serif text-3xl mb-2">Itinerario Detallado</h2>
                   <div className="flex items-center gap-4 text-stone-500 text-sm">
                     <span className="flex items-center gap-1"><Calendar size={14} /> {format(parseISO(trip.arrivalDate), 'd MMM yyyy', { locale: es })} - {format(parseISO(trip.departureDate), 'd MMM yyyy', { locale: es })}</span>
                     <span className="flex items-center gap-1"><MapPin size={14} /> {trip.countries.length} países</span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Filters */}
+                  <div className="flex items-center gap-2 bg-stone-100 dark:bg-stone-800/50 p-1 rounded-2xl border border-stone-200 dark:border-stone-700">
+                    <div className="px-3 text-stone-400">
+                      <Filter size={14} />
+                    </div>
+                    
+                    <select 
+                      value={filterDate}
+                      onChange={(e) => setFilterDate(e.target.value)}
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
+                    >
+                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Fecha</option>
+                      {trip.dailyPlans.map(day => (
+                        <option key={day.date} value={day.date} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">
+                          {format(parseISO(day.date), 'd MMM', { locale: es })}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
+
+                    <select 
+                      value={filterCountry}
+                      onChange={(e) => setFilterCountry(e.target.value)}
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
+                    >
+                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">País</option>
+                      {Array.from(new Set(trip.dailyPlans.map(d => d.country))).map(country => (
+                        <option key={country} value={country} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{country}</option>
+                      ))}
+                    </select>
+
+                    <div className="w-px h-4 bg-stone-200 dark:bg-stone-700" />
+
+                    <select 
+                      value={filterCity}
+                      onChange={(e) => setFilterCity(e.target.value)}
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
+                    >
+                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Ciudad</option>
+                      {Array.from(new Set(trip.dailyPlans.filter(d => !filterCountry || d.country === filterCountry).map(d => d.city))).map(city => (
+                        <option key={city} value={city} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{city}</option>
+                      ))}
+                    </select>
+
+                    {(filterDate || filterCountry || filterCity) && (
+                      <button 
+                        onClick={() => {
+                          setFilterDate('');
+                          setFilterCountry('');
+                          setFilterCity('');
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors"
+                        title="Limpiar filtros"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
                   <button 
                     onClick={() => setStep('countries')}
-                    className="btn-secondary text-sm px-4 py-2"
+                    className="btn-secondary text-sm px-4 py-2 h-[42px]"
                   >
                     <Edit3 size={16} /> Editar Países
                   </button>
@@ -834,8 +900,18 @@ export default function App() {
               </div>
 
               <div className="grid gap-8">
-                {trip.dailyPlans.length > 0 ? trip.dailyPlans.map((day, idx) => (
-                  <div key={day.date} className="relative pl-8 md:pl-0">
+                {trip.dailyPlans
+                  .filter(day => {
+                    const matchesDate = filterDate ? day.date === filterDate : true;
+                    const matchesCountry = filterCountry ? day.country === filterCountry : true;
+                    const matchesCity = filterCity ? day.city === filterCity : true;
+                    return matchesDate && matchesCountry && matchesCity;
+                  })
+                  .map((day, idx) => {
+                    // Find original index for "Día X" label
+                    const originalIdx = trip.dailyPlans.findIndex(d => d.date === day.date);
+                    return (
+                      <div key={day.date} className="relative pl-8 md:pl-0">
                     {/* Timeline line */}
                     <div className="absolute left-0 top-0 bottom-0 w-px bg-stone-200 md:hidden"></div>
                     
@@ -843,7 +919,7 @@ export default function App() {
                       {/* Date Sidebar */}
                       <div className="md:w-48 shrink-0">
                         <div className="sticky top-24">
-                          <div className="text-xs font-bold uppercase tracking-widest text-blue-900 dark:text-blue-400 mb-1">Día {idx + 1}</div>
+                          <div className="text-xs font-bold uppercase tracking-widest text-blue-900 dark:text-blue-400 mb-1">Día {originalIdx + 1}</div>
                           <div className="font-serif text-2xl leading-tight mb-1">
                             {format(parseISO(day.date), 'EEEE, d', { locale: es })}
                           </div>
@@ -952,7 +1028,10 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                )) : (
+                );
+              })}
+                
+                {trip.dailyPlans.length === 0 && (
                   <div className="glass-card p-12 text-center space-y-4">
                     <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-400">
                       <Calendar size={32} />
@@ -960,6 +1039,23 @@ export default function App() {
                     <div>
                       <h3 className="text-xl font-serif">Tu itinerario está vacío</h3>
                       <p className="text-stone-500">Define tus fechas y países para generar el plan diario.</p>
+                    </div>
+                  </div>
+                )}
+
+                {trip.dailyPlans.length > 0 && trip.dailyPlans.filter(day => {
+                  const matchesDate = filterDate ? day.date === filterDate : true;
+                  const matchesCountry = filterCountry ? day.country === filterCountry : true;
+                  const matchesCity = filterCity ? day.city === filterCity : true;
+                  return matchesDate && matchesCountry && matchesCity;
+                }).length === 0 && (
+                  <div className="glass-card p-12 text-center space-y-4">
+                    <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-400">
+                      <Filter size={32} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-serif">No hay resultados</h3>
+                      <p className="text-stone-500">Prueba ajustando los filtros seleccionados.</p>
                     </div>
                   </div>
                 )}
