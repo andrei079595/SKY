@@ -669,7 +669,7 @@ export default function App() {
 
                 <div className="glass-card p-8 md:col-span-2 flex flex-col justify-between border-stone-200">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-serif text-3xl text-stone-800 dark:text-stone-200">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
+                    <h3 className="font-serif text-3xl text-stone-900 dark:text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
                     <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
                       <Clock size={24} />
                     </div>
@@ -822,8 +822,8 @@ export default function App() {
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4 border-t border-stone-200">
                 <div className="flex-1">
-                  <h2 className="font-serif text-3xl mb-2">Itinerario Detallado</h2>
-                  <div className="flex items-center gap-4 text-stone-500 text-sm">
+                  <h2 className="font-serif text-3xl mb-2 text-stone-900 dark:text-white">Itinerario Detallado</h2>
+                  <div className="flex items-center gap-4 text-stone-500 dark:text-stone-400 text-sm">
                     <span className="flex items-center gap-1"><Calendar size={14} /> {format(parseISO(trip.arrivalDate), 'd MMM yyyy', { locale: es })} - {format(parseISO(trip.departureDate), 'd MMM yyyy', { locale: es })}</span>
                     <span className="flex items-center gap-1"><MapPin size={14} /> {trip.countries.length} países</span>
                   </div>
@@ -919,11 +919,11 @@ export default function App() {
                       {/* Date Sidebar */}
                       <div className="md:w-48 shrink-0">
                         <div className="sticky top-24">
-                          <div className="text-xs font-bold uppercase tracking-widest text-blue-900 dark:text-blue-400 mb-1">Día {originalIdx + 1}</div>
-                          <div className="font-serif text-2xl leading-tight mb-1">
+                          <div className="text-xs font-bold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-1">Día {originalIdx + 1}</div>
+                          <div className="font-serif text-2xl leading-tight mb-1 text-stone-900 dark:text-white">
                             {format(parseISO(day.date), 'EEEE, d', { locale: es })}
                           </div>
-                          <div className="text-stone-400 text-sm capitalize">
+                          <div className="text-stone-400 dark:text-stone-300 text-sm capitalize">
                             {format(parseISO(day.date), 'MMMM', { locale: es })}
                           </div>
                           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-bold shadow-md">
@@ -936,9 +936,9 @@ export default function App() {
                       <div className="flex-1 space-y-4">
                         <div className="glass-card p-6">
                           <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-bold text-stone-800 dark:text-stone-200 flex items-center gap-2">
+                            <h4 className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
                               Actividades
-                              <span className="text-xs font-normal text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                              <span className="text-xs font-normal text-stone-400 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
                                 {day.activities.length}
                               </span>
                             </h4>
@@ -958,7 +958,7 @@ export default function App() {
                                     type="time" 
                                     value={activity.time}
                                     onChange={e => updateActivity(day.date, activity.id, 'time', e.target.value)}
-                                    className="bg-transparent text-sm font-mono text-stone-500 outline-none focus:text-blue-900 dark:focus:text-blue-400"
+                                    className="bg-transparent text-sm font-mono text-stone-500 dark:text-stone-400 outline-none focus:text-blue-900 dark:focus:text-blue-400"
                                   />
                                 </div>
                                 <div className="flex-1 space-y-2">
@@ -967,7 +967,7 @@ export default function App() {
                                     placeholder="¿Qué planes tienes?"
                                     value={activity.description}
                                     onChange={e => updateActivity(day.date, activity.id, 'description', e.target.value)}
-                                    className="w-full bg-transparent outline-none text-stone-700 dark:text-stone-300 placeholder:text-stone-300 focus:placeholder:text-stone-400"
+                                    className="w-full bg-transparent outline-none text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-600 focus:placeholder:text-stone-400"
                                   />
                                   
                                   {/* Attachments List */}
