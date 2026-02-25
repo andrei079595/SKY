@@ -439,7 +439,7 @@ export default function App() {
             }}
           >
             <Logo className="w-32 h-32" />
-            <span className="font-serif text-xl font-medium tracking-tight text-blue-900 dark:text-blue-400 italic">
+            <span className="font-serif text-2xl font-bold tracking-tight text-blue-600 dark:text-white italic">
               ¡Tu mejor amigo!
             </span>
           </motion.a>
@@ -841,7 +841,7 @@ export default function App() {
                       onChange={(e) => setFilterDate(e.target.value)}
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
-                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Fecha</option>
+                      <option key="default-date" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Fecha</option>
                       {trip.dailyPlans.map(day => (
                         <option key={day.date} value={day.date} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">
                           {format(parseISO(day.date), 'd MMM', { locale: es })}
@@ -856,7 +856,7 @@ export default function App() {
                       onChange={(e) => setFilterCountry(e.target.value)}
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
-                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">País</option>
+                      <option key="default-country" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">País</option>
                       {Array.from(new Set(trip.dailyPlans.map(d => d.country))).map(country => (
                         <option key={country} value={country} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{country}</option>
                       ))}
@@ -869,7 +869,7 @@ export default function App() {
                       onChange={(e) => setFilterCity(e.target.value)}
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
-                      <option value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Ciudad</option>
+                      <option key="default-city" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Ciudad</option>
                       {Array.from(new Set(trip.dailyPlans.filter(d => !filterCountry || d.country === filterCountry).map(d => d.city))).map(city => (
                         <option key={city} value={city} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{city}</option>
                       ))}
