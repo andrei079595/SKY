@@ -994,9 +994,9 @@ export default function App() {
               className="relative w-full max-w-md bg-white dark:bg-stone-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-stone-200 dark:border-stone-800"
             >
               <div className="p-8 text-center">
-                <div className="w-full aspect-video mb-6 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 flex items-center justify-center p-4">
+                <div className="w-full h-[380px] mb-6 rounded-[2rem] bg-stone-800 flex items-center justify-center p-10">
                   <img 
-                    src="https://i.ibb.co/TxV4pMjX/image.png" 
+                    src="https://i.ibb.co/FLS5N4Zv/skypregunta.png" 
                     alt="Pregunta" 
                     className="w-full h-full object-contain"
                     referrerPolicy="no-referrer"
