@@ -12,7 +12,8 @@ service cloud.firestore {
     // Trips collection
     match /trips/{userId} {
       allow create: if isOwner(userId);
-      allow read, delete: if isAuthenticated() && (
+      allow read: if isAuthenticated();
+      allow delete: if isAuthenticated() && (
         isOwner(userId) || 
         (resource != null && resource.data.collaboratorIds.hasAny([request.auth.uid]))
       );

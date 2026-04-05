@@ -343,7 +343,9 @@ export default function App() {
     // Check for tripId in URL
     const params = new URLSearchParams(window.location.search);
     const sId = params.get('tripId');
+    const iName = params.get('inviter');
     setSharedTripId(sId);
+    if (iName) setInviterName(iName);
 
     if (sId) {
       getDoc(doc(db, 'trips', sId)).then((docSnap) => {
@@ -354,6 +356,9 @@ export default function App() {
             setInviterName(owner.displayName.split(' ')[0]);
           }
         }
+      }).catch(err => {
+        console.error("Error fetching inviter name:", err);
+        // If we can't fetch the name (likely not logged in), it's fine, we'll show 'Un amigo' or the one from URL
       });
     }
 
@@ -397,7 +402,7 @@ export default function App() {
               return prev;
             });
             setStep('dashboard');
-          } else if (!sharedTripId) {
+          } else if (!sId) {
             // If it's our own trip and it doesn't exist, we'll create it later on setup
             setCurrentTripId(currentUser.uid);
           }
@@ -1782,7 +1787,8 @@ export default function App() {
                 <button 
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.set('tripId', user?.uid || '');
+                    url.searchParams.set('tripId', currentTripId || user?.uid || '');
+                    if (user?.displayName) url.searchParams.set('inviter', user.displayName.split(' ')[0]);
                     const text = "Te invito a editar mi viaje en SKY conmigo.";
                     const shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url.toString())}`;
                     window.open(shareUrl, '_blank');
@@ -1796,7 +1802,8 @@ export default function App() {
                 <button 
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.set('tripId', user?.uid || '');
+                    url.searchParams.set('tripId', currentTripId || user?.uid || '');
+                    if (user?.displayName) url.searchParams.set('inviter', user.displayName.split(' ')[0]);
                     const text = "Te invito a editar mi viaje en SKY conmigo.";
                     const shareUrl = `mailto:?subject=Invitación a mi viaje en SKY&body=${encodeURIComponent(text + " " + url.toString())}`;
                     window.location.href = shareUrl;
@@ -1810,7 +1817,8 @@ export default function App() {
                 <button 
                   onClick={() => {
                     const url = new URL(window.location.href);
-                    url.searchParams.set('tripId', user?.uid || '');
+                    url.searchParams.set('tripId', currentTripId || user?.uid || '');
+                    if (user?.displayName) url.searchParams.set('inviter', user.displayName.split(' ')[0]);
                     navigator.clipboard.writeText(url.toString());
                     setIsCopied(true);
                     setTimeout(() => setIsCopied(false), 2000);
@@ -1825,7 +1833,8 @@ export default function App() {
                   <button 
                     onClick={async () => {
                       const url = new URL(window.location.href);
-                      url.searchParams.set('tripId', user?.uid || '');
+                      url.searchParams.set('tripId', currentTripId || user?.uid || '');
+                      if (user?.displayName) url.searchParams.set('inviter', user.displayName.split(' ')[0]);
                       try {
                         await navigator.share({
                           title: 'Mi viaje en SKY',
