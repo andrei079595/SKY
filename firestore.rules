@@ -11,7 +11,17 @@ service cloud.firestore {
 
     // Trips collection
     match /trips/{userId} {
-      allow read, write: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow read, delete: if isAuthenticated() && (
+        isOwner(userId) || 
+        (resource != null && resource.data.collaboratorIds.hasAny([request.auth.uid]))
+      );
+      allow update: if isAuthenticated() && (
+        isOwner(userId) || 
+        (resource != null && resource.data.collaboratorIds.hasAny([request.auth.uid])) ||
+        // Allow adding oneself as a collaborator if they have the link
+        (resource != null && request.resource.data.collaboratorIds.hasAll(resource.data.collaboratorIds) && request.resource.data.collaboratorIds.hasAny([request.auth.uid]))
+      );
     }
   }
 }

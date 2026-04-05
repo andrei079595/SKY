@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Plus, 
   Trash2, 
@@ -40,7 +41,14 @@ import {
   CloudSnow,
   Wind,
   CloudDrizzle,
-  CloudSun
+  CloudSun,
+  Share2,
+  Users,
+  Copy,
+  Check,
+  Mail,
+  MessageCircle,
+  ExternalLink
 } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { 
@@ -184,7 +192,7 @@ const WeatherWidget = ({ city, country }: { city: string, country: string }) => 
       </motion.button>
 
       <AnimatePresence>
-        {isExpanded && (
+        {isExpanded && createPortal(
           <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -243,7 +251,8 @@ const WeatherWidget = ({ city, country }: { city: string, country: string }) => 
                 </button>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </>
@@ -298,6 +307,9 @@ export default function App() {
   const [filterDate, setFilterDate] = useState<string>('');
   const [filterCountry, setFilterCountry] = useState<string>('');
   const [filterCity, setFilterCity] = useState<string>('');
+  const [currentTripId, setCurrentTripId] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Force dark mode
   useEffect(() => {
@@ -309,16 +321,53 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: () => void;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    // Check for tripId in URL
+    const params = new URLSearchParams(window.location.search);
+    const sharedTripId = params.get('tripId');
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        const targetTripId = sharedTripId || currentUser.uid;
+        setCurrentTripId(targetTripId);
+
         // Real-time listener for trip data
-        unsubscribeSnapshot = onSnapshot(doc(db, 'trips', currentUser.uid), (docSnap) => {
+        unsubscribeSnapshot = onSnapshot(doc(db, 'trips', targetTripId), (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as TripData;
-            // Only update if it's different to avoid loops
-            setTrip(data);
+            console.log("Received update from Firestore:", data.lastUpdated);
+            
+            // If we are joining a shared trip, add ourselves as collaborator
+            if (sharedTripId && sharedTripId !== currentUser.uid) {
+              const isCollaborator = data.collaboratorIds?.includes(currentUser.uid);
+              if (!isCollaborator) {
+                const newCollaborator = {
+                  uid: currentUser.uid,
+                  displayName: currentUser.displayName || 'Viajero',
+                  photoURL: currentUser.photoURL || ''
+                };
+                const updatedCollaborators = [...(data.collaborators || []), newCollaborator];
+                const updatedCollaboratorIds = [...(data.collaboratorIds || []), currentUser.uid];
+                setDoc(doc(db, 'trips', sharedTripId), { 
+                  ...data, 
+                  collaborators: updatedCollaborators,
+                  collaboratorIds: updatedCollaboratorIds,
+                  lastUpdated: Date.now()
+                }, { merge: true });
+              }
+            }
+
+            setTrip(prev => {
+              // Only update if server data is newer or if we don't have local data
+              if (!prev.lastUpdated || (data.lastUpdated && data.lastUpdated > prev.lastUpdated)) {
+                return data;
+              }
+              return prev;
+            });
             setStep('dashboard');
+          } else if (!sharedTripId) {
+            // If it's our own trip and it doesn't exist, we'll create it later on setup
+            setCurrentTripId(currentUser.uid);
           }
         }, (error) => {
           console.error("Error in real-time sync:", error);
@@ -365,11 +414,17 @@ export default function App() {
   };
 
   const saveTripToFirestore = async () => {
-    if (!user) return;
+    if (!user || !currentTripId) return;
     setIsSyncing(true);
     try {
-      await setDoc(doc(db, 'trips', user.uid), trip);
-      console.log("Trip saved to Firestore");
+      // Ensure ownerId is set if it's our own trip
+      const dataToSave = { ...trip, lastUpdated: Date.now() };
+      if (currentTripId === user.uid) {
+        if (!dataToSave.ownerId) dataToSave.ownerId = user.uid;
+        if (!dataToSave.collaboratorIds) dataToSave.collaboratorIds = [user.uid];
+      }
+      await setDoc(doc(db, 'trips', currentTripId), dataToSave);
+      console.log("Trip saved to Firestore:", dataToSave.lastUpdated);
     } catch (error) {
       console.error("Error saving trip:", error);
     } finally {
@@ -752,12 +807,40 @@ export default function App() {
             }}
           >
             <Logo className="w-16 h-16 sm:w-32 sm:h-32" />
-            <span className="font-serif text-sm sm:text-2xl font-bold tracking-tight text-blue-800 dark:text-white italic">
+            <span className="font-serif text-lg sm:text-4xl font-bold tracking-tight text-blue-800 dark:text-white italic">
               ¡Tu mejor amigo!
             </span>
           </motion.a>
           
           <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
+            {/* Collaborators */}
+            {trip.collaborators && trip.collaborators.length > 0 && (
+              <div className="hidden md:flex -space-x-2 mr-2">
+                {trip.collaborators.map((c) => (
+                  <div key={c.uid} className="w-8 h-8 rounded-full border-2 border-stone-900 overflow-hidden" title={c.displayName}>
+                    {c.photoURL ? (
+                      <img src={c.photoURL} alt={c.displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full bg-blue-800 flex items-center justify-center text-[10px] text-white font-bold">
+                        {c.displayName.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Invite Button in Header */}
+            {user && user.uid === currentTripId && (
+              <button 
+                onClick={() => setShowShareModal(true)}
+                className="flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-lg shadow-blue-600/20 shrink-0"
+              >
+                <Share2 size={18} />
+                Invitar a un amigo a tu viaje
+              </button>
+            )}
+
             {user ? (
               <div className="flex items-center gap-2 sm:gap-3 bg-stone-100 dark:bg-stone-900 p-1 sm:p-1.5 pr-2 sm:pr-4 rounded-2xl border border-stone-200 dark:border-stone-800 shrink-0">
                 {user.photoURL ? (
@@ -814,7 +897,7 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <p className="text-white text-2xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
+                <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
                 
                 {!user && (
                   <motion.div 
@@ -1035,16 +1118,18 @@ export default function App() {
                 </div>
 
                 <div className="glass-card p-8 md:col-span-2 flex flex-col justify-between border-stone-200">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-serif text-3xl text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
-                    <div className="flex items-center gap-3">
-                      {todayPlan && todayPlan.city !== 'Por definir' && (
-                        <WeatherWidget city={todayPlan.city} country={todayPlan.country} />
-                      )}
+                  <div className="flex flex-col gap-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-serif text-3xl text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
                       <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
                         <Clock size={24} />
                       </div>
                     </div>
+                    {todayPlan && todayPlan.city !== 'Por definir' && (
+                      <div className="w-fit">
+                        <WeatherWidget city={todayPlan.city} country={todayPlan.country} />
+                      </div>
+                    )}
                   </div>
                   
                   {todayPlan ? (
@@ -1263,23 +1348,25 @@ export default function App() {
                   </div>
 
                   {user && (
-                    <button 
-                      onClick={saveTripToFirestore}
-                      disabled={isSyncing}
-                      className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all active:scale-95 h-[42px]",
-                        isSyncing 
-                          ? "bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed" 
-                          : "bg-blue-900 hover:bg-blue-800 text-white shadow-lg shadow-blue-900/20"
-                      )}
-                    >
-                      {isSyncing ? (
-                        <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin" />
-                      ) : (
-                        <Cloud size={16} />
-                      )}
-                      {isSyncing ? 'Guardando...' : 'Guardar Itinerario'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={saveTripToFirestore}
+                        disabled={isSyncing}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all active:scale-95 h-[42px]",
+                          isSyncing 
+                            ? "bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed" 
+                            : "bg-blue-900 hover:bg-blue-800 text-white shadow-lg shadow-blue-900/20"
+                        )}
+                      >
+                        {isSyncing ? (
+                          <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin" />
+                        ) : (
+                          <Cloud size={16} />
+                        )}
+                        {isSyncing ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
                   )}
 
                   <button 
@@ -1559,6 +1646,108 @@ export default function App() {
               </div>
             </motion.div>
           </div>
+        )}
+
+        {showShareModal && createPortal(
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-stone-900 border border-stone-800 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl relative"
+            >
+              <button 
+                onClick={() => setShowShareModal(false)}
+                className="absolute top-4 right-4 p-2 hover:bg-stone-800 rounded-full text-stone-400 transition-colors z-10"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="relative h-48 overflow-hidden">
+                <img 
+                  src="https://ibb.co/gLtWP1MZ" 
+                  alt="Share trip" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-900 to-transparent" />
+              </div>
+
+              <div className="p-8 text-center">
+                <h3 className="text-2xl font-bold text-white mb-4 italic font-serif">¡Invita a un amigo!</h3>
+                <p className="text-stone-400 mb-8 font-medium">
+                  ¡Comparte este link a un amigo para que juntos puedan editar el viaje!
+                </p>
+
+                <div className="space-y-3">
+                  <button 
+                    onClick={() => {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('tripId', user?.uid || '');
+                      const text = "Te invito a editar mi viaje en SKY conmigo.";
+                      const shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url.toString())}`;
+                      window.open(shareUrl, '_blank');
+                    }}
+                    className="w-full py-4 bg-[#25D366] hover:bg-[#22c35e] text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-green-600/20"
+                  >
+                    <MessageCircle size={20} />
+                    Compartir por WhatsApp
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('tripId', user?.uid || '');
+                      const text = "Te invito a editar mi viaje en SKY conmigo.";
+                      const shareUrl = `mailto:?subject=Invitación a mi viaje en SKY&body=${encodeURIComponent(text + " " + url.toString())}`;
+                      window.location.href = shareUrl;
+                    }}
+                    className="w-full py-4 bg-stone-800 hover:bg-stone-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all border border-stone-700"
+                  >
+                    <Mail size={20} />
+                    Compartir por Correo
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      const url = new URL(window.location.href);
+                      url.searchParams.set('tripId', user?.uid || '');
+                      navigator.clipboard.writeText(url.toString());
+                      setIsCopied(true);
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-600/20"
+                  >
+                    {isCopied ? <Check size={20} /> : <Copy size={20} />}
+                    {isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}
+                  </button>
+
+                  {navigator.share && (
+                    <button 
+                      onClick={async () => {
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('tripId', user?.uid || '');
+                        try {
+                          await navigator.share({
+                            title: 'Mi viaje en SKY',
+                            text: 'Te invito a editar mi viaje en SKY conmigo.',
+                            url: url.toString(),
+                          });
+                        } catch (err) {
+                          console.error('Error sharing:', err);
+                        }
+                      }}
+                      className="w-full py-4 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all"
+                    >
+                      <ExternalLink size={20} />
+                      Más opciones
+                    </button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>,
+          document.body
         )}
       </AnimatePresence>
     </div>

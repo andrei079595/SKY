@@ -27,9 +27,19 @@ export interface DayPlan {
   activities: Activity[];
 }
 
+export interface Collaborator {
+  uid: string;
+  displayName: string;
+  photoURL: string;
+}
+
 export interface TripData {
   arrivalDate: string;
   departureDate: string;
   countries: CountryVisit[];
   dailyPlans: DayPlan[];
+  ownerId?: string;
+  collaborators?: Collaborator[];
+  collaboratorIds?: string[];
+  lastUpdated?: number;
 }
