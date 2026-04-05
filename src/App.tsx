@@ -32,7 +32,15 @@ import {
   Paperclip,
   Image as ImageIcon,
   FileText,
-  X
+  X,
+  Cloud,
+  Thermometer,
+  CloudRain,
+  CloudLightning,
+  CloudSnow,
+  Wind,
+  CloudDrizzle,
+  CloudSun
 } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { 
@@ -69,14 +77,14 @@ import {
   setDoc, 
   onSnapshot 
 } from 'firebase/firestore';
-import { LogIn, LogOut, User as UserIcon, Cloud } from 'lucide-react';
+import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 // Componente de botón de Google estándar
-const GoogleButton = ({ onClick, className }: { onClick: () => void, className?: string }) => (
+const GoogleButton = ({ onClick, className, hideTextOnMobile = false }: { onClick: () => void, className?: string, hideTextOnMobile?: boolean }) => (
   <button
     onClick={onClick}
     className={cn(
@@ -84,19 +92,145 @@ const GoogleButton = ({ onClick, className }: { onClick: () => void, className?:
       className
     )}
   >
-    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" className="shrink-0">
       <path d="M17.64 9.20455C17.64 8.56636 17.5827 7.95273 17.4764 7.36364H9V10.845H13.8436C13.635 11.97 13.0009 12.9232 12.0477 13.5614V15.8195H14.9564C16.6582 14.2527 17.64 11.9455 17.64 9.20455Z" fill="#4285F4"/>
       <path d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5614C11.2418 14.1014 10.2109 14.4205 9 14.4205C6.65591 14.4205 4.67182 12.8373 3.96409 10.71H0.957275V13.0418C2.43818 15.9832 5.48182 18 9 18Z" fill="#34A853"/>
       <path d="M3.96409 10.71C3.78409 10.17 3.68182 9.59318 3.68182 9C3.68182 8.40682 3.78409 7.83 3.96409 7.29V4.95818H0.957275C0.347727 6.17318 0 7.54773 0 9C0 10.4523 0.347727 11.8268 0.957275 13.0418L3.96409 10.71Z" fill="#FBBC05"/>
       <path d="M9 3.57955C10.3214 3.57955 11.5077 4.03364 12.4405 4.92545L15.0218 2.34409C13.4632 0.891818 11.4259 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z" fill="#EA4335"/>
     </svg>
-    <span className="text-stone-700 dark:text-stone-200 font-medium text-sm">Entrar con Google</span>
+    <span className={cn("text-stone-700 dark:text-stone-200 font-medium text-sm whitespace-nowrap", hideTextOnMobile && "hidden sm:inline")}>
+      Entrar con Google
+    </span>
   </button>
 );
 
+// Componente de clima
+const WeatherWidget = ({ city, country }: { city: string, country: string }) => {
+  const [weather, setWeather] = useState<any>(null);
+  const [forecast, setForecast] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const countryData = EUROPE_DATA[country];
+        if (!countryData) return;
+        const coords = countryData.cities[city];
+        if (!coords) return;
+
+        const [lng, lat] = coords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&hourly=temperature_2m,weathercode`);
+        const data = await res.json();
+        setWeather(data.current_weather);
+        
+        // Procesar forecast (próximas 6 horas)
+        const now = new Date();
+        const currentHour = now.getHours();
+        const hourlyData = [];
+        
+        for (let i = 1; i <= 6; i++) {
+          const index = currentHour + i;
+          if (data.hourly && data.hourly.time[index]) {
+            hourlyData.push({
+              time: data.hourly.time[index].split('T')[1],
+              temp: data.hourly.temperature_2m[index],
+              code: data.hourly.weathercode[index]
+            });
+          }
+        }
+        setForecast(hourlyData);
+      } catch (e) {
+        console.error("Error fetching weather", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (city && country) {
+      fetchWeather();
+    }
+  }, [city, country]);
+
+  const getWeatherIcon = (code: number, size = 24) => {
+    if (code === 0) return <Sun className="text-yellow-400" size={size} />;
+    if (code >= 1 && code <= 3) return <CloudSun className="text-stone-400" size={size} />;
+    if (code >= 45 && code <= 48) return <Wind className="text-stone-500" size={size} />;
+    if (code >= 51 && code <= 67) return <CloudRain className="text-blue-400" size={size} />;
+    if (code >= 71 && code <= 77) return <CloudSnow className="text-white" size={size} />;
+    if (code >= 80 && code <= 82) return <CloudRain className="text-blue-500" size={size} />;
+    if (code >= 95) return <CloudLightning className="text-purple-400" size={size} />;
+    return <Cloud className="text-stone-400" size={size} />;
+  };
+
+  if (loading) return <div className="h-16 w-48 animate-pulse bg-stone-800 rounded-2xl" />;
+  if (!weather) return null;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col gap-3 bg-stone-900/50 p-3 rounded-2xl border border-stone-800 shadow-lg"
+    >
+      <div className="flex items-center gap-3 pr-2">
+        <div className="p-2 bg-stone-800 rounded-xl">
+          {getWeatherIcon(weather.weathercode)}
+        </div>
+        <div>
+          <div className="text-xl font-bold text-white leading-none">{Math.round(weather.temperature)}°C</div>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-stone-500 mt-1">{city}</div>
+        </div>
+      </div>
+      
+      {forecast.length > 0 && (
+        <div className="flex gap-4 pt-2 border-t border-stone-800 overflow-x-auto no-scrollbar">
+          {forecast.map((item, idx) => (
+            <div key={idx} className="flex flex-col items-center min-w-[40px]">
+              <span className="text-[9px] font-bold text-stone-500 uppercase mb-1">{item.time}</span>
+              {getWeatherIcon(item.code, 14)}
+              <span className="text-[11px] font-bold text-stone-300 mt-1">{Math.round(item.temp)}°</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
+// Helper para comprimir imágenes
+const compressImage = (base64Str: string, maxWidth = 1000, maxHeight = 1000): Promise<string> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', 0.6)); // 60% quality for sync safety
+    };
+    img.onerror = () => resolve(base64Str);
+  });
+};
+
 export default function App() {
   const [step, setStep] = useState<'setup' | 'countries' | 'dashboard' | 'table'>('setup');
-  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const theme = 'dark';
   const [user, setUser] = useState<User | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [trip, setTrip] = useState<TripData>({
@@ -111,35 +245,39 @@ export default function App() {
   const [filterCountry, setFilterCountry] = useState<string>('');
   const [filterCity, setFilterCity] = useState<string>('');
 
-  // Handle theme
+  // Force dark mode
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
-    if (savedTheme) {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-    } else {
-      // Default to dark if no theme is saved
-      document.documentElement.classList.add('dark');
-    }
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
-
-  // Firebase Auth Listener
+  // Firebase Auth Listener & Real-time Sync
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    let unsubscribeSnapshot: () => void;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Load from Firestore when user logs in
-        loadTripFromFirestore(currentUser.uid);
+        // Real-time listener for trip data
+        unsubscribeSnapshot = onSnapshot(doc(db, 'trips', currentUser.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data() as TripData;
+            // Only update if it's different to avoid loops
+            setTrip(data);
+            setStep('dashboard');
+          }
+        }, (error) => {
+          console.error("Error in real-time sync:", error);
+        });
+      } else {
+        if (unsubscribeSnapshot) unsubscribeSnapshot();
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+    };
   }, []);
 
   const signIn = async () => {
@@ -447,10 +585,15 @@ export default function App() {
       if (!isImage && !isPdf) continue;
 
       const reader = new FileReader();
-      const data = await new Promise<string>((resolve) => {
+      let data = await new Promise<string>((resolve) => {
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.readAsDataURL(file);
       });
+
+      // Compress if it's an image to avoid Firestore 1MB limit
+      if (isImage) {
+        data = await compressImage(data);
+      }
 
       newAttachments.push({
         id: Math.random().toString(36).substr(2, 9),
@@ -542,60 +685,53 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[var(--bg)] pb-20 selection:bg-blue-500/30">
       {/* Header */}
-      <header className="bg-[var(--card-bg)] backdrop-blur-xl border-b border-[var(--card-border)]">
-        <div className="max-w-7xl mx-auto px-6 h-32 flex items-center justify-between">
+      <header className="bg-[var(--card-bg)] backdrop-blur-xl border-b border-[var(--card-border)] sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 sm:h-32 flex items-center justify-between gap-4">
           <motion.a 
             href="/"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-4 cursor-pointer" 
+            className="flex items-center gap-2 sm:gap-4 cursor-pointer shrink-0" 
             onClick={(e) => {
               e.preventDefault();
               trip.arrivalDate ? setStep('dashboard') : setStep('setup');
             }}
           >
-            <Logo className="w-32 h-32" />
-            <span className="font-serif text-2xl font-bold tracking-tight text-blue-600 dark:text-white italic">
+            <Logo className="w-16 h-16 sm:w-32 sm:h-32" />
+            <span className="font-serif text-sm sm:text-2xl font-bold tracking-tight text-blue-800 dark:text-white italic">
               ¡Tu mejor amigo!
             </span>
           </motion.a>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
             {user ? (
-              <div className="flex items-center gap-3 bg-stone-100 dark:bg-stone-900 p-1.5 pr-4 rounded-2xl border border-stone-200 dark:border-stone-800">
+              <div className="flex items-center gap-2 sm:gap-3 bg-stone-100 dark:bg-stone-900 p-1 sm:p-1.5 pr-2 sm:pr-4 rounded-2xl border border-stone-200 dark:border-stone-800 shrink-0">
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-xl shadow-sm" referrerPolicy="no-referrer" />
+                  <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-xl shadow-sm shrink-0" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-8 h-8 bg-blue-900 text-white rounded-xl flex items-center justify-center">
+                  <div className="w-8 h-8 bg-blue-900 text-white rounded-xl flex items-center justify-center shrink-0">
                     <UserIcon size={16} />
                   </div>
                 )}
-                <div className="hidden sm:block">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Viajero</div>
-                  <div className="text-xs font-bold text-stone-700 dark:text-stone-300 truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</div>
+                <div className="hidden md:block">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Viajero</div>
+                  <div className="text-xs font-bold text-stone-800 dark:text-stone-200 truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</div>
                 </div>
                 <button 
                   onClick={logout}
-                  className="ml-2 p-2 text-stone-400 hover:text-red-500 transition-colors"
+                  className="p-2 text-stone-500 hover:text-red-500 transition-colors shrink-0"
                   title="Cerrar sesión"
                 >
                   <LogOut size={18} />
                 </button>
               </div>
             ) : (
-              <GoogleButton onClick={signIn} />
+              <GoogleButton onClick={signIn} hideTextOnMobile className="shrink-0" />
             )}
 
             <button 
-              onClick={toggleTheme}
-              className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:text-blue-900 dark:hover:text-blue-400 transition-all"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-
-            <button 
               onClick={() => setShowResetModal(true)}
-              className="p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all shadow-sm"
+              className="p-2 sm:p-3 rounded-2xl bg-red-50 dark:bg-red-950/30 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-all shadow-sm shrink-0"
               title="Reiniciar viaje"
             >
               <Trash2 size={20} />
@@ -624,7 +760,7 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo.</p>
+                <p className="text-stone-800 dark:text-stone-200 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo.</p>
                 
                 {!user && (
                   <motion.div 
@@ -633,19 +769,19 @@ export default function App() {
                     transition={{ delay: 0.5 }}
                     className="mt-12 flex flex-col items-center gap-4"
                   >
-                    <div className="flex items-center gap-3 text-stone-400 text-sm mb-2">
+                    <div className="flex items-center gap-3 text-stone-500 dark:text-stone-400 text-sm mb-2">
                       <Cloud size={16} className="text-blue-500" />
                       <span>Guarda tu viaje en la nube y accede desde cualquier lugar</span>
                     </div>
-                    <GoogleButton onClick={signIn} className="scale-125 py-3 px-6 shadow-xl shadow-blue-900/10" />
+                    <GoogleButton onClick={signIn} className="scale-110 sm:scale-125 py-3 px-6 shadow-xl shadow-blue-900/10" />
                   </motion.div>
                 )}
               </div>
 
-              <form onSubmit={handleSetupSubmit} className="glass-card p-10 space-y-8 max-w-md mx-auto">
+              <form onSubmit={handleSetupSubmit} className="glass-card p-6 sm:p-10 space-y-8 max-w-md mx-auto">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-900" /> Fecha de Llegada
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                    <Calendar size={14} className="text-blue-900 dark:text-blue-400" /> Fecha de Llegada
                   </label>
                   <input 
                     type="date" 
@@ -657,8 +793,8 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-900" /> Fecha de Regreso
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400 flex items-center gap-2">
+                    <Calendar size={14} className="text-blue-900 dark:text-blue-400" /> Fecha de Regreso
                   </label>
                   <input 
                     type="date" 
@@ -705,7 +841,7 @@ export default function App() {
                 {trip.countries.map((country, idx) => (
                   <div key={country.id} className="glass-card p-8 flex flex-col md:flex-row gap-6 items-end md:items-center">
                     <div className="flex-1 w-full space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">País</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">País</label>
                       <select 
                         value={country.name}
                         onChange={e => updateCountry(country.id, 'name', e.target.value)}
@@ -717,7 +853,7 @@ export default function App() {
                       </select>
                     </div>
                     <div className="flex-1 w-full space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Ciudad</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Ciudad</label>
                       <select 
                         value={country.city}
                         onChange={e => updateCountry(country.id, 'city', e.target.value)}
@@ -729,7 +865,7 @@ export default function App() {
                       </select>
                     </div>
                     <div className="w-full md:w-48 space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Desde</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Desde</label>
                       <input 
                         type="date" 
                         value={country.from}
@@ -738,7 +874,7 @@ export default function App() {
                       />
                     </div>
                     <div className="w-full md:w-48 space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Hasta</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Hasta</label>
                       <input 
                         type="date" 
                         value={country.to}
@@ -756,8 +892,8 @@ export default function App() {
                 ))}
 
                 {trip.countries.length === 0 && (
-                  <div className="text-center py-12 border-2 border-dashed border-stone-200 rounded-2xl">
-                    <p className="text-stone-400">No has añadido países todavía.</p>
+                  <div className="text-center py-12 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
+                    <p className="text-stone-500 dark:text-stone-400">No has añadido países todavía.</p>
                   </div>
                 )}
               </div>
@@ -765,7 +901,7 @@ export default function App() {
               <div className="flex justify-between pt-8">
                 <button 
                   onClick={() => setStep('setup')}
-                  className="text-stone-400 hover:text-stone-800 font-bold flex items-center gap-2 transition-colors"
+                  className="text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 font-bold flex items-center gap-2 transition-colors"
                 >
                   <ChevronLeft size={20} /> Atrás
                 </button>
@@ -847,8 +983,13 @@ export default function App() {
                 <div className="glass-card p-8 md:col-span-2 flex flex-col justify-between border-stone-200">
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="font-serif text-3xl text-stone-900 dark:text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
-                    <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
-                      <Clock size={24} />
+                    <div className="flex items-center gap-3">
+                      {todayPlan && todayPlan.city !== 'Por definir' && (
+                        <WeatherWidget city={todayPlan.city} country={todayPlan.country} />
+                      )}
+                      <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
+                        <Clock size={24} />
+                      </div>
                     </div>
                   </div>
                   
@@ -882,12 +1023,12 @@ export default function App() {
                             </div>
                           ))
                         ) : (
-                          <span className="text-stone-400 text-base italic">No hay actividades para hoy</span>
+                          <span className="text-stone-500 dark:text-stone-400 text-base italic">No hay actividades para hoy</span>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-stone-400 text-base italic py-4">No hay planes registrados para la fecha actual</div>
+                    <div className="text-stone-500 dark:text-stone-400 text-base italic py-4">No hay planes registrados para la fecha actual</div>
                   )}
                 </div>
               </div>
@@ -895,8 +1036,8 @@ export default function App() {
               {/* Map Section - Full Width */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-3xl">Tu Ruta</h3>
-                  <div className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Visualización Geográfica</div>
+                  <h3 className="font-serif text-3xl text-stone-900 dark:text-white">Tu Ruta</h3>
+                  <div className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Visualización Geográfica</div>
                 </div>
                 <div className="h-[500px] w-full rounded-[2.5rem] overflow-hidden border border-stone-200 dark:border-stone-800 shadow-xl bg-stone-100 dark:bg-stone-900 relative">
                   <TripMap key={`map-${step}-${trip.countries.length}`} countries={trip.countries} theme={theme} />
@@ -906,10 +1047,10 @@ export default function App() {
               {/* Stats Section - Below Map */}
               <div className="space-y-6 mt-16 relative z-10">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-3xl flex items-center gap-2">
+                  <h3 className="font-serif text-3xl flex items-center gap-2 text-stone-900 dark:text-white">
                     <BarChart3 className="text-blue-900 dark:text-blue-400" /> Distribución del Viaje
                   </h3>
-                  <div className="text-xs font-bold text-stone-400 dark:text-stone-500 uppercase tracking-widest">Días por País</div>
+                  <div className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Días por País</div>
                 </div>
                 <div className="glass-card p-8 min-h-[450px]">
                   {countryStats.length > 0 ? (
@@ -989,7 +1130,7 @@ export default function App() {
                       height={400}
                     />
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-stone-400 italic text-sm">
+                    <div className="h-full flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 italic text-sm">
                       <BarChart3 size={48} className="mb-4 opacity-20" />
                       Define tu ruta para ver estadísticas detalladas
                     </div>
@@ -1009,7 +1150,7 @@ export default function App() {
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Filters */}
                   <div className="flex items-center gap-2 bg-stone-100 dark:bg-stone-800/50 p-1 rounded-2xl border border-stone-200 dark:border-stone-700">
-                    <div className="px-3 text-stone-400">
+                    <div className="px-3 text-stone-500 dark:text-stone-400">
                       <Filter size={14} />
                     </div>
                     
@@ -1116,11 +1257,11 @@ export default function App() {
                       {/* Date Sidebar */}
                       <div className="md:w-48 shrink-0">
                         <div className="sticky top-24">
-                          <div className="text-xs font-bold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-1">Día {originalIdx + 1}</div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-1">Día {originalIdx + 1}</div>
                           <div className="font-serif text-2xl leading-tight mb-1 text-stone-900 dark:text-white">
                             {format(parseISO(day.date), 'EEEE, d', { locale: es })}
                           </div>
-                          <div className="text-stone-400 dark:text-stone-300 text-sm capitalize">
+                          <div className="text-stone-500 dark:text-stone-300 text-sm capitalize">
                             {format(parseISO(day.date), 'MMMM', { locale: es })}
                           </div>
                           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-bold shadow-md">
@@ -1135,7 +1276,7 @@ export default function App() {
                           <div className="flex items-center justify-between mb-4">
                             <h4 className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
                               Actividades
-                              <span className="text-xs font-normal text-stone-400 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-normal text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
                                 {day.activities.length}
                               </span>
                             </h4>
@@ -1181,7 +1322,7 @@ export default function App() {
                                           </button>
                                           <button 
                                             onClick={() => removeAttachment(day.date, activity.id, att.id)}
-                                            className="text-stone-400 hover:text-red-500 transition-colors"
+                                            className="text-stone-500 dark:text-stone-400 hover:text-red-500 transition-colors"
                                           >
                                             <X size={10} />
                                           </button>
@@ -1191,7 +1332,7 @@ export default function App() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                  <label className="cursor-pointer text-stone-400 md:text-stone-300 hover:text-blue-900 dark:hover:text-blue-400 p-1 transition-all">
+                                  <label className="cursor-pointer text-stone-500 dark:text-stone-400 md:text-stone-300 hover:text-blue-900 dark:hover:text-blue-400 p-1 transition-all">
                                     <input 
                                       type="file" 
                                       className="hidden" 
@@ -1215,7 +1356,7 @@ export default function App() {
                             {day.activities.length === 0 && (
                               <button 
                                 onClick={() => addActivity(day.date)}
-                                className="w-full py-4 border-2 border-dashed border-stone-100 dark:border-stone-800 rounded-xl text-stone-300 hover:text-stone-400 hover:border-stone-200 transition-all text-sm flex items-center justify-center gap-2"
+                                className="w-full py-4 border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-xl text-stone-500 dark:text-stone-400 hover:text-stone-600 hover:border-stone-300 transition-all text-sm flex items-center justify-center gap-2"
                               >
                                 <Plus size={16} /> No hay actividades planeadas
                               </button>
@@ -1230,7 +1371,7 @@ export default function App() {
                 
                 {trip.dailyPlans.length === 0 && (
                   <div className="glass-card p-12 text-center space-y-4">
-                    <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-400">
+                    <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-500 dark:text-stone-400">
                       <Calendar size={32} />
                     </div>
                     <div>
@@ -1247,7 +1388,7 @@ export default function App() {
                   return matchesDate && matchesCountry && matchesCity;
                 }).length === 0 && (
                   <div className="glass-card p-12 text-center space-y-4">
-                    <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-400">
+                    <div className="w-16 h-16 bg-stone-100 dark:bg-stone-800 rounded-full flex items-center justify-center mx-auto text-stone-500 dark:text-stone-400">
                       <Filter size={32} />
                     </div>
                     <div>
@@ -1265,8 +1406,8 @@ export default function App() {
 
       {/* Footer Info */}
       <footer className="max-w-5xl mx-auto px-4 py-12 border-t border-stone-200 dark:border-stone-800 text-center">
-        <p className="text-stone-400 text-sm">
-          SKY &copy; {new Date().getFullYear()} — Tu compañero de aventuras.
+        <p className="text-stone-500 dark:text-stone-400 text-sm">
+          SKY &copy; {new Date().getFullYear()} — Tu compañero de viaje definitivo.
         </p>
       </footer>
       {/* Modals */}
