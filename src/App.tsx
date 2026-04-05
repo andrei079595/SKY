@@ -75,6 +75,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Componente de botón de Google estándar
 const GoogleButton = ({ onClick, className }: { onClick: () => void, className?: string }) => (
   <button
     onClick={onClick}
@@ -219,6 +220,16 @@ export default function App() {
       localStorage.setItem('euro-trip-data', JSON.stringify(trip));
     }
   }, [trip]);
+
+  // Auto-sync to Firestore
+  useEffect(() => {
+    if (user && trip.arrivalDate) {
+      const timeoutId = setTimeout(() => {
+        saveTripToFirestore();
+      }, 2000); // Sync after 2 seconds of inactivity
+      return () => clearTimeout(timeoutId);
+    }
+  }, [trip, user]);
 
   // Sync daily plans with countries and dates
   const syncDailyPlans = (currentTrip: typeof trip) => {
