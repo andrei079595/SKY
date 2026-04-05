@@ -76,6 +76,10 @@ import { auth, db, googleProvider } from './firebase';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
+  setPersistence,
+  browserLocalPersistence,
   signOut, 
   User 
 } from 'firebase/auth';
@@ -311,6 +315,8 @@ export default function App() {
   const [isCopied, setIsCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [inviterName, setInviterName] = useState<string | null>(null);
+  const [sharedTripId, setSharedTripId] = useState<string | null>(null);
 
   // Force dark mode
   useEffect(() => {
@@ -322,14 +328,39 @@ export default function App() {
   useEffect(() => {
     let unsubscribeSnapshot: () => void;
 
+    // Set persistence to local to be more robust on mobile
+    setPersistence(auth, browserLocalPersistence).catch(err => console.error("Persistence error:", err));
+
+    // Check for redirect result (fallback for mobile)
+    getRedirectResult(auth).catch(err => {
+      console.error("Redirect result error:", err);
+      if (err.message.includes('missing initial state')) {
+        // This is the specific error the user is seeing
+        console.warn("Detected missing initial state, likely due to browser restrictions.");
+      }
+    });
+
     // Check for tripId in URL
     const params = new URLSearchParams(window.location.search);
-    const sharedTripId = params.get('tripId');
+    const sId = params.get('tripId');
+    setSharedTripId(sId);
+
+    if (sId) {
+      getDoc(doc(db, 'trips', sId)).then((docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.collaborators && data.collaborators.length > 0) {
+            const owner = data.collaborators.find((c: any) => c.uid === sId) || data.collaborators[0];
+            setInviterName(owner.displayName.split(' ')[0]);
+          }
+        }
+      });
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const targetTripId = sharedTripId || currentUser.uid;
+        const targetTripId = sId || currentUser.uid;
         setCurrentTripId(targetTripId);
 
         // Real-time listener for trip data
@@ -339,7 +370,7 @@ export default function App() {
             console.log("Received update from Firestore:", data.lastUpdated);
             
             // If we are joining a shared trip, add ourselves as collaborator
-            if (sharedTripId && sharedTripId !== currentUser.uid) {
+            if (sId && sId !== currentUser.uid) {
               const isCollaborator = data.collaboratorIds?.includes(currentUser.uid);
               if (!isCollaborator) {
                 const newCollaborator = {
@@ -349,7 +380,7 @@ export default function App() {
                 };
                 const updatedCollaborators = [...(data.collaborators || []), newCollaborator];
                 const updatedCollaboratorIds = [...(data.collaboratorIds || []), currentUser.uid];
-                setDoc(doc(db, 'trips', sharedTripId), { 
+                setDoc(doc(db, 'trips', sId), { 
                   ...data, 
                   collaborators: updatedCollaborators,
                   collaboratorIds: updatedCollaboratorIds,
@@ -386,14 +417,27 @@ export default function App() {
 
   const signIn = async () => {
     try {
+      // Force account selection to avoid stale sessions
+      googleProvider.setCustomParameters({ prompt: 'select_account' });
+      
+      // Try popup first
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
-      console.error("Error signing in:", error);
-      if (error.code === 'auth/popup-blocked') {
-        alert("El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes para este sitio.");
-      } else if (error.code === 'auth/unauthorized-domain') {
-        alert("Este dominio no está autorizado en Firebase. Debes añadirlo en la consola de Firebase (Authentication -> Settings -> Authorized domains).");
-      } else {
+      console.error("Sign in error:", error);
+      
+      // If popup is blocked or fails with a state error, try redirect
+      if (
+        error.code === 'auth/popup-blocked' || 
+        error.code === 'auth/internal-error' || 
+        error.message.includes('missing initial state') ||
+        error.code === 'auth/cancelled-popup-request'
+      ) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirectError: any) {
+          alert("No se pudo iniciar sesión. Por favor, asegúrate de no estar en 'Navegación Privada' y de permitir las cookies en tu navegador.");
+        }
+      } else if (error.code !== 'auth/popup-closed-by-user') {
         alert("Error al iniciar sesión: " + error.message);
       }
     }
@@ -888,7 +932,19 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
+                
+                {sharedTripId ? (
+                  <div className="space-y-6">
+                    <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg leading-tight">
+                      {inviterName || 'Un amigo'} te ha invitado a editar su viaje con él.
+                    </p>
+                    <p className="text-blue-300 text-xl font-medium">
+                      Ingresa con tu cuenta de Google para editarlo juntos.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
+                )}
                 
                 {!user && (
                   <motion.div 
@@ -906,41 +962,43 @@ export default function App() {
                 )}
               </div>
 
-              <form onSubmit={handleSetupSubmit} className="glass-card p-6 sm:p-10 space-y-8 max-w-md mx-auto">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-400" /> Fecha de Llegada
-                  </label>
-                  <input 
-                    type="date" 
-                    required
-                    value={trip.arrivalDate}
-                    onChange={e => setTrip(prev => ({ ...prev, arrivalDate: e.target.value }))}
-                    className="input-field"
-                  />
-                </div>
+              {!sharedTripId && (
+                <form onSubmit={handleSetupSubmit} className="glass-card p-6 sm:p-10 space-y-8 max-w-md mx-auto">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
+                      <Calendar size={14} className="text-blue-400" /> Fecha de Llegada
+                    </label>
+                    <input 
+                      type="date" 
+                      required
+                      value={trip.arrivalDate}
+                      onChange={e => setTrip(prev => ({ ...prev, arrivalDate: e.target.value }))}
+                      className="input-field"
+                    />
+                  </div>
 
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-400" /> Fecha de Regreso
-                  </label>
-                  <input 
-                    type="date" 
-                    required
-                    value={trip.departureDate}
-                    onChange={e => setTrip(prev => ({ ...prev, departureDate: e.target.value }))}
-                    className="input-field"
-                  />
-                </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
+                      <Calendar size={14} className="text-blue-400" /> Fecha de Regreso
+                    </label>
+                    <input 
+                      type="date" 
+                      required
+                      value={trip.departureDate}
+                      onChange={e => setTrip(prev => ({ ...prev, departureDate: e.target.value }))}
+                      className="input-field"
+                    />
+                  </div>
 
-                <button 
-                  type="submit"
-                  className="btn-primary w-full py-5 text-lg"
-                >
-                  Comenzar Aventura
-                  <ChevronRight size={20} />
-                </button>
-              </form>
+                  <button 
+                    type="submit"
+                    className="btn-primary w-full py-5 text-lg"
+                  >
+                    Comenzar Aventura
+                    <ChevronRight size={20} />
+                  </button>
+                </form>
+              )}
             </motion.div>
           )}
 
