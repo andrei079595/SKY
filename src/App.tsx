@@ -56,6 +56,20 @@ import { TripData, CountryVisit, DayPlan, Activity, Attachment } from './types';
 import { TripMap } from './components/TripMap';
 import { Logo } from './components/Logo';
 import { EUROPE_DATA } from './constants';
+import { auth, db, googleProvider } from './firebase';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut, 
+  User 
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { LogIn, LogOut, User as UserIcon, Cloud } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -64,6 +78,8 @@ function cn(...inputs: ClassValue[]) {
 export default function App() {
   const [step, setStep] = useState<'setup' | 'countries' | 'dashboard' | 'table'>('setup');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [user, setUser] = useState<User | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [trip, setTrip] = useState<TripData>({
     arrivalDate: '',
     departureDate: '',
@@ -95,7 +111,68 @@ export default function App() {
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
-  // Load from localStorage on mount
+  // Firebase Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Load from Firestore when user logs in
+        loadTripFromFirestore(currentUser.uid);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const signIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Error signing in:", error);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setTrip({
+        arrivalDate: '',
+        departureDate: '',
+        countries: [],
+        dailyPlans: []
+      });
+      setStep('setup');
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  const saveTripToFirestore = async () => {
+    if (!user) return;
+    setIsSyncing(true);
+    try {
+      await setDoc(doc(db, 'trips', user.uid), trip);
+      console.log("Trip saved to Firestore");
+    } catch (error) {
+      console.error("Error saving trip:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const loadTripFromFirestore = async (uid: string) => {
+    try {
+      const docRef = doc(db, 'trips', uid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setTrip(docSnap.data() as TripData);
+        setStep('dashboard');
+      }
+    } catch (error) {
+      console.error("Error loading trip:", error);
+    }
+  };
+
+  // Load from localStorage on mount (as fallback)
   useEffect(() => {
     const saved = localStorage.getItem('euro-trip-data');
     if (saved) {
@@ -134,6 +211,7 @@ export default function App() {
       const existingPlan = currentTrip.dailyPlans.find(p => p.date === dateStr);
       
       let countryName = 'Por definir';
+      let cityName = 'Por definir';
       // Priority to the last country in the list for overlaps
       for (let i = currentTrip.countries.length - 1; i >= 0; i--) {
         const c = currentTrip.countries[i];
@@ -141,7 +219,8 @@ export default function App() {
         const cEnd = startOfDay(parseISO(c.to));
         
         if (isValid(cStart) && isValid(cEnd) && isWithinInterval(day, { start: cStart, end: cEnd })) {
-          countryName = `${c.city}, ${c.name}`;
+          countryName = c.name;
+          cityName = c.city;
           break;
         }
       }
@@ -149,6 +228,7 @@ export default function App() {
       return {
         date: dateStr,
         country: countryName,
+        city: cityName,
         activities: existingPlan?.activities || []
       };
     });
@@ -445,6 +525,37 @@ export default function App() {
           </motion.a>
           
           <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-3 bg-stone-100 dark:bg-stone-900 p-1.5 pr-4 rounded-2xl border border-stone-200 dark:border-stone-800">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-xl shadow-sm" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-8 h-8 bg-blue-900 text-white rounded-xl flex items-center justify-center">
+                    <UserIcon size={16} />
+                  </div>
+                )}
+                <div className="hidden sm:block">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Viajero</div>
+                  <div className="text-xs font-bold text-stone-700 dark:text-stone-300 truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</div>
+                </div>
+                <button 
+                  onClick={logout}
+                  className="ml-2 p-2 text-stone-400 hover:text-red-500 transition-colors"
+                  title="Cerrar sesión"
+                >
+                  <LogOut size={18} />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={signIn}
+                className="flex items-center gap-2 px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-900/20 transition-all active:scale-95"
+              >
+                <LogIn size={18} />
+                <span className="hidden sm:inline">Entrar con Google</span>
+              </button>
+            )}
+
             <button 
               onClick={toggleTheme}
               className="p-3 rounded-2xl bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 hover:text-blue-900 dark:hover:text-blue-400 transition-all"
@@ -484,6 +595,24 @@ export default function App() {
                   <Logo className="w-full h-full" />
                 </motion.a>
                 <p className="text-stone-500 dark:text-stone-400 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo.</p>
+                
+                {!user && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="mt-8 flex items-center justify-center gap-3 text-stone-400 text-sm"
+                  >
+                    <Cloud size={16} />
+                    <span>Inicia sesión para guardar tu viaje en la nube</span>
+                    <button 
+                      onClick={signIn}
+                      className="text-blue-900 dark:text-blue-400 font-bold hover:underline"
+                    >
+                      Entrar ahora
+                    </button>
+                  </motion.div>
+                )}
               </div>
 
               <form onSubmit={handleSetupSubmit} className="glass-card p-10 space-y-8 max-w-md mx-auto">
@@ -613,13 +742,34 @@ export default function App() {
                 >
                   <ChevronLeft size={20} /> Atrás
                 </button>
-                <button 
-                  onClick={generateDailyPlans}
-                  className="btn-primary px-10"
-                >
-                  Generar Itinerario
-                  <CheckCircle2 size={20} />
-                </button>
+                <div className="flex items-center gap-4">
+                  {user && (
+                    <button 
+                      onClick={saveTripToFirestore}
+                      disabled={isSyncing}
+                      className={cn(
+                        "flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95",
+                        isSyncing 
+                          ? "bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed" 
+                          : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
+                      )}
+                    >
+                      {isSyncing ? (
+                        <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin" />
+                      ) : (
+                        <Cloud size={16} />
+                      )}
+                      {isSyncing ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  )}
+                  <button 
+                    onClick={generateDailyPlans}
+                    className="btn-primary px-10"
+                  >
+                    Generar Itinerario
+                    <CheckCircle2 size={20} />
+                  </button>
+                </div>
               </div>
             </motion.div>
           )}
@@ -842,8 +992,8 @@ export default function App() {
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
                       <option key="default-date" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Fecha</option>
-                      {trip.dailyPlans.map(day => (
-                        <option key={day.date} value={day.date} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">
+                      {trip.dailyPlans.map((day, idx) => (
+                        <option key={`date-${day.date}-${idx}`} value={day.date} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">
                           {format(parseISO(day.date), 'd MMM', { locale: es })}
                         </option>
                       ))}
@@ -857,8 +1007,8 @@ export default function App() {
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
                       <option key="default-country" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">País</option>
-                      {Array.from(new Set(trip.dailyPlans.map(d => d.country))).map(country => (
-                        <option key={country} value={country} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{country}</option>
+                      {Array.from(new Set(trip.dailyPlans.map(d => d.country))).filter(Boolean).map(country => (
+                        <option key={`country-${country}`} value={country} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{country}</option>
                       ))}
                     </select>
 
@@ -870,8 +1020,8 @@ export default function App() {
                       className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
                     >
                       <option key="default-city" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Ciudad</option>
-                      {Array.from(new Set(trip.dailyPlans.filter(d => !filterCountry || d.country === filterCountry).map(d => d.city))).map(city => (
-                        <option key={city} value={city} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{city}</option>
+                      {Array.from(new Set(trip.dailyPlans.filter(d => !filterCountry || d.country === filterCountry).map(d => d.city))).filter(Boolean).map(city => (
+                        <option key={`city-${city}`} value={city} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{city}</option>
                       ))}
                     </select>
 
@@ -889,6 +1039,26 @@ export default function App() {
                       </button>
                     )}
                   </div>
+
+                  {user && (
+                    <button 
+                      onClick={saveTripToFirestore}
+                      disabled={isSyncing}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all active:scale-95 h-[42px]",
+                        isSyncing 
+                          ? "bg-stone-100 dark:bg-stone-800 text-stone-400 cursor-not-allowed" 
+                          : "bg-blue-900 hover:bg-blue-800 text-white shadow-lg shadow-blue-900/20"
+                      )}
+                    >
+                      {isSyncing ? (
+                        <div className="w-4 h-4 border-2 border-stone-300 border-t-stone-500 rounded-full animate-spin" />
+                      ) : (
+                        <Cloud size={16} />
+                      )}
+                      {isSyncing ? 'Guardando...' : 'Guardar Itinerario'}
+                    </button>
+                  )}
 
                   <button 
                     onClick={() => setStep('countries')}
@@ -927,7 +1097,7 @@ export default function App() {
                             {format(parseISO(day.date), 'MMMM', { locale: es })}
                           </div>
                           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-xl text-sm font-bold shadow-md">
-                            <MapPin size={16} /> {day.country}
+                            <MapPin size={16} /> {day.city}, {day.country}
                           </div>
                         </div>
                       </div>

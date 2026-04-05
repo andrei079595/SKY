@@ -23,6 +23,7 @@ export interface CountryVisit {
 export interface DayPlan {
   date: string; // ISO string
   country: string;
+  city: string;
   activities: Activity[];
 }
 

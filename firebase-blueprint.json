@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "TripData": {
+      "title": "TripData",
+      "description": "The complete itinerary and trip configuration for a user.",
+      "type": "object",
+      "properties": {
+        "arrivalDate": { "type": "string", "format": "date" },
+        "departureDate": { "type": "string", "format": "date" },
+        "countries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "city": { "type": "string" },
+              "from": { "type": "string", "format": "date" },
+              "to": { "type": "string", "format": "date" }
+            }
+          }
+        },
+        "dailyPlans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date" },
+              "country": { "type": "string" },
+              "city": { "type": "string" },
+              "activities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "time": { "type": "string" },
+                    "description": { "type": "string" },
+                    "attachments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "type": { "type": "string", "enum": ["image", "pdf"] },
+                          "data": { "type": "string", "description": "base64 encoded data" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": ["arrivalDate", "departureDate", "countries", "dailyPlans"]
+    }
+  },
+  "firestore": {
+    "/trips/{userId}": {
+      "schema": "TripData",
+      "description": "Stores the trip data for a specific user."
+    }
+  }
+}
