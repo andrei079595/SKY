@@ -468,16 +468,6 @@ export default function App() {
     }
   }, [trip]);
 
-  // Auto-sync to Firestore
-  useEffect(() => {
-    if (user && trip.arrivalDate) {
-      const timeoutId = setTimeout(() => {
-        saveTripToFirestore();
-      }, 2000); // Sync after 2 seconds of inactivity
-      return () => clearTimeout(timeoutId);
-    }
-  }, [trip, user]);
-
   // Sync daily plans with countries and dates
   const syncDailyPlans = (currentTrip: typeof trip) => {
     if (!currentTrip.arrivalDate || !currentTrip.departureDate) return null;
@@ -1648,108 +1638,107 @@ export default function App() {
           </div>
         )}
 
-        {showShareModal && createPortal(
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-stone-900 border border-stone-800 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl relative"
-            >
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="absolute top-4 right-4 p-2 hover:bg-stone-800 rounded-full text-stone-400 transition-colors z-10"
-              >
-                <X size={24} />
-              </button>
+      </AnimatePresence>
 
-              <div className="relative h-48 overflow-hidden">
+      {showShareModal && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-stone-900 border border-stone-800 w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl relative"
+          >
+            <button 
+              onClick={() => setShowShareModal(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-stone-800 rounded-full text-stone-400 transition-colors z-10"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="p-8 pb-0 text-center">
+              <div className="w-full h-[320px] mb-6 rounded-[2rem] bg-stone-800 flex items-center justify-center p-8">
                 <img 
-                  src="https://ibb.co/gLtWP1MZ" 
-                  alt="Share trip" 
-                  className="w-full h-full object-cover"
+                  src="https://i.ibb.co/Q3YHCBFv/Skyamigos.png" 
+                  alt="Skyamigos" 
+                  className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-900 to-transparent" />
               </div>
+              <h3 className="text-2xl font-bold text-white mb-4 italic font-serif">¡Invita a un amigo!</h3>
+              <p className="text-stone-400 mb-8 font-medium">
+                ¡Comparte este link a un amigo para que juntos puedan editar el viaje!
+              </p>
 
-              <div className="p-8 text-center">
-                <h3 className="text-2xl font-bold text-white mb-4 italic font-serif">¡Invita a un amigo!</h3>
-                <p className="text-stone-400 mb-8 font-medium">
-                  ¡Comparte este link a un amigo para que juntos puedan editar el viaje!
-                </p>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tripId', user?.uid || '');
+                    const text = "Te invito a editar mi viaje en SKY conmigo.";
+                    const shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url.toString())}`;
+                    window.open(shareUrl, '_blank');
+                  }}
+                  className="w-full py-4 bg-[#25D366] hover:bg-[#22c35e] text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-green-600/20"
+                >
+                  <MessageCircle size={20} />
+                  Compartir por WhatsApp
+                </button>
 
-                <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tripId', user?.uid || '');
+                    const text = "Te invito a editar mi viaje en SKY conmigo.";
+                    const shareUrl = `mailto:?subject=Invitación a mi viaje en SKY&body=${encodeURIComponent(text + " " + url.toString())}`;
+                    window.location.href = shareUrl;
+                  }}
+                  className="w-full py-4 bg-stone-800 hover:bg-stone-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all border border-stone-700"
+                >
+                  <Mail size={20} />
+                  Compartir por Correo
+                </button>
+
+                <button 
+                  onClick={() => {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('tripId', user?.uid || '');
+                    navigator.clipboard.writeText(url.toString());
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
+                  }}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-600/20"
+                >
+                  {isCopied ? <Check size={20} /> : <Copy size={20} />}
+                  {isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}
+                </button>
+
+                {navigator.share && (
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       const url = new URL(window.location.href);
                       url.searchParams.set('tripId', user?.uid || '');
-                      const text = "Te invito a editar mi viaje en SKY conmigo.";
-                      const shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url.toString())}`;
-                      window.open(shareUrl, '_blank');
+                      try {
+                        await navigator.share({
+                          title: 'Mi viaje en SKY',
+                          text: 'Te invito a editar mi viaje en SKY conmigo.',
+                          url: url.toString(),
+                        });
+                      } catch (err) {
+                        console.error('Error sharing:', err);
+                      }
                     }}
-                    className="w-full py-4 bg-[#25D366] hover:bg-[#22c35e] text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-green-600/20"
+                    className="w-full py-4 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all"
                   >
-                    <MessageCircle size={20} />
-                    Compartir por WhatsApp
+                    <ExternalLink size={20} />
+                    Más opciones
                   </button>
-
-                  <button 
-                    onClick={() => {
-                      const url = new URL(window.location.href);
-                      url.searchParams.set('tripId', user?.uid || '');
-                      const text = "Te invito a editar mi viaje en SKY conmigo.";
-                      const shareUrl = `mailto:?subject=Invitación a mi viaje en SKY&body=${encodeURIComponent(text + " " + url.toString())}`;
-                      window.location.href = shareUrl;
-                    }}
-                    className="w-full py-4 bg-stone-800 hover:bg-stone-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all border border-stone-700"
-                  >
-                    <Mail size={20} />
-                    Compartir por Correo
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      const url = new URL(window.location.href);
-                      url.searchParams.set('tripId', user?.uid || '');
-                      navigator.clipboard.writeText(url.toString());
-                      setIsCopied(true);
-                      setTimeout(() => setIsCopied(false), 2000);
-                    }}
-                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-blue-600/20"
-                  >
-                    {isCopied ? <Check size={20} /> : <Copy size={20} />}
-                    {isCopied ? '¡Enlace Copiado!' : 'Copiar Enlace'}
-                  </button>
-
-                  {navigator.share && (
-                    <button 
-                      onClick={async () => {
-                        const url = new URL(window.location.href);
-                        url.searchParams.set('tripId', user?.uid || '');
-                        try {
-                          await navigator.share({
-                            title: 'Mi viaje en SKY',
-                            text: 'Te invito a editar mi viaje en SKY conmigo.',
-                            url: url.toString(),
-                          });
-                        } catch (err) {
-                          console.error('Error sharing:', err);
-                        }
-                      }}
-                      className="w-full py-4 bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-all"
-                    >
-                      <ExternalLink size={20} />
-                      Más opciones
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
-            </motion.div>
-          </div>,
-          document.body
-        )}
-      </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
