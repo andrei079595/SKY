@@ -310,6 +310,7 @@ export default function App() {
   const [currentTripId, setCurrentTripId] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
 
   // Force dark mode
   useEffect(() => {
@@ -1035,7 +1036,7 @@ export default function App() {
                 <div className="flex items-center gap-4">
                   {user && (
                     <button 
-                      onClick={saveTripToFirestore}
+                      onClick={() => setShowSaveModal(true)}
                       disabled={isSyncing}
                       className={cn(
                         "flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95",
@@ -1340,7 +1341,7 @@ export default function App() {
                   {user && (
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={saveTripToFirestore}
+                        onClick={() => setShowSaveModal(true)}
                         disabled={isSyncing}
                         className={cn(
                           "flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all active:scale-95 h-[42px]",
@@ -1583,6 +1584,56 @@ export default function App() {
                     className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-all shadow-lg shadow-red-200 dark:shadow-none"
                   >
                     Sí, reiniciar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showSaveModal && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSaveModal(false)}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-white dark:bg-stone-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-stone-200 dark:border-stone-800"
+            >
+              <div className="p-8 text-center">
+                <div className="w-full h-[380px] mb-6 rounded-[2rem] bg-stone-800 flex items-center justify-center p-10">
+                  <img 
+                    src="https://i.ibb.co/FLS5N4Zv/skypregunta.png" 
+                    alt="Pregunta" 
+                    className="w-full h-full object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <h3 className="font-serif text-2xl mb-2 text-stone-200">¿Quieres guardar los cambios?</h3>
+                <p className="text-stone-500 dark:text-stone-400 mb-8">
+                  Los cambios que guardes se verán reflejados en las sesiones de tus compañeros de viaje.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowSaveModal(false)}
+                    className="flex-1 py-4 rounded-2xl bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-bold hover:bg-stone-200 dark:hover:bg-stone-700 transition-all"
+                  >
+                    Seguir editando
+                  </button>
+                  <button 
+                    onClick={() => {
+                      saveTripToFirestore();
+                      setShowSaveModal(false);
+                    }}
+                    className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+                  >
+                    Sí, guardar
                   </button>
                 </div>
               </div>
