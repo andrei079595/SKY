@@ -318,6 +318,13 @@ export default function App() {
   const [inviterName, setInviterName] = useState<string | null>(null);
   const [sharedTripId, setSharedTripId] = useState<string | null>(null);
 
+  // Force transition if trip data is already loaded for shared trips
+  useEffect(() => {
+    if (user && sharedTripId && trip.arrivalDate && step === 'setup') {
+      setStep('dashboard');
+    }
+  }, [user, sharedTripId, trip.arrivalDate, step]);
+
   // Force dark mode
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -943,9 +950,25 @@ export default function App() {
                     <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg leading-tight">
                       {inviterName || 'Un amigo'} te ha invitado a editar su viaje con él.
                     </p>
-                    <p className="text-blue-300 text-xl font-medium">
-                      Ingresa con tu cuenta de Google para editarlo juntos.
-                    </p>
+                    {user ? (
+                      <div className="flex flex-col items-center gap-6 mt-8">
+                        <div className="flex items-center gap-3 text-blue-300 text-xl font-medium animate-pulse">
+                          <Cloud className="animate-bounce" size={24} />
+                          <span>Cargando viaje compartido...</span>
+                        </div>
+                        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin shadow-lg shadow-blue-500/20" />
+                        <button 
+                          onClick={() => trip.arrivalDate && setStep('dashboard')}
+                          className="text-stone-400 text-sm hover:text-white transition-colors underline underline-offset-4"
+                        >
+                          Si no carga automáticamente, haz clic aquí
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-blue-300 text-xl font-medium">
+                        Ingresa con tu cuenta de Google para editarlo juntos.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <p className="text-white text-4xl sm:text-5xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
