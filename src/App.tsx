@@ -98,7 +98,7 @@ const GoogleButton = ({ onClick, className, hideTextOnMobile = false }: { onClic
       <path d="M3.96409 10.71C3.78409 10.17 3.68182 9.59318 3.68182 9C3.68182 8.40682 3.78409 7.83 3.96409 7.29V4.95818H0.957275C0.347727 6.17318 0 7.54773 0 9C0 10.4523 0.347727 11.8268 0.957275 13.0418L3.96409 10.71Z" fill="#FBBC05"/>
       <path d="M9 3.57955C10.3214 3.57955 11.5077 4.03364 12.4405 4.92545L15.0218 2.34409C13.4632 0.891818 11.4259 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z" fill="#EA4335"/>
     </svg>
-    <span className={cn("text-stone-700 dark:text-stone-200 font-medium text-sm whitespace-nowrap", hideTextOnMobile && "hidden sm:inline")}>
+    <span className={cn("text-white font-bold text-sm whitespace-nowrap", hideTextOnMobile && "hidden sm:inline")}>
       Entrar con Google
     </span>
   </button>
@@ -109,6 +109,7 @@ const WeatherWidget = ({ city, country }: { city: string, country: string }) => 
   const [weather, setWeather] = useState<any>(null);
   const [forecast, setForecast] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -123,12 +124,12 @@ const WeatherWidget = ({ city, country }: { city: string, country: string }) => 
         const data = await res.json();
         setWeather(data.current_weather);
         
-        // Procesar forecast (próximas 6 horas)
+        // Procesar forecast (próximas 24 horas)
         const now = new Date();
         const currentHour = now.getHours();
         const hourlyData = [];
         
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 1; i <= 24; i++) {
           const index = currentHour + i;
           if (data.hourly && data.hourly.time[index]) {
             hourlyData.push({
@@ -162,37 +163,90 @@ const WeatherWidget = ({ city, country }: { city: string, country: string }) => 
     return <Cloud className="text-stone-400" size={size} />;
   };
 
-  if (loading) return <div className="h-16 w-48 animate-pulse bg-stone-800 rounded-2xl" />;
+  if (loading) return <div className="h-16 w-32 animate-pulse bg-stone-800 rounded-2xl" />;
   if (!weather) return null;
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex flex-col gap-3 bg-stone-900/50 p-3 rounded-2xl border border-stone-800 shadow-lg"
-    >
-      <div className="flex items-center gap-3 pr-2">
+    <>
+      <motion.button 
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsExpanded(true)}
+        className="flex items-center gap-3 bg-stone-900/80 backdrop-blur-md p-2 pr-4 rounded-2xl border border-stone-800 shadow-lg hover:border-blue-500/50 transition-all"
+      >
         <div className="p-2 bg-stone-800 rounded-xl">
-          {getWeatherIcon(weather.weathercode)}
+          {getWeatherIcon(weather.weathercode, 20)}
         </div>
-        <div>
-          <div className="text-xl font-bold text-white leading-none">{Math.round(weather.temperature)}°C</div>
-          <div className="text-[10px] font-bold uppercase tracking-widest text-stone-500 mt-1">{city}</div>
+        <div className="text-left">
+          <div className="text-lg font-bold text-white leading-none">{Math.round(weather.temperature)}°C</div>
+          <div className="text-[9px] font-bold uppercase tracking-widest text-blue-400 mt-1">{city}</div>
         </div>
-      </div>
-      
-      {forecast.length > 0 && (
-        <div className="flex gap-4 pt-2 border-t border-stone-800 overflow-x-auto no-scrollbar">
-          {forecast.map((item, idx) => (
-            <div key={idx} className="flex flex-col items-center min-w-[40px]">
-              <span className="text-[9px] font-bold text-stone-500 uppercase mb-1">{item.time}</span>
-              {getWeatherIcon(item.code, 14)}
-              <span className="text-[11px] font-bold text-stone-300 mt-1">{Math.round(item.temp)}°</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </motion.div>
+      </motion.button>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-stone-900 border border-stone-800 w-full max-w-lg rounded-[2.5rem] overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-stone-800 flex items-center justify-between bg-gradient-to-r from-blue-900/20 to-transparent">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-stone-800 rounded-2xl">
+                    {getWeatherIcon(weather.weathercode, 32)}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white">{city}</h3>
+                    <p className="text-blue-400 font-medium">{country}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="p-2 hover:bg-stone-800 rounded-full text-stone-400 transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <div className="text-5xl font-bold text-white">{Math.round(weather.temperature)}°C</div>
+                    <p className="text-stone-400 mt-1">Temperatura actual</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xl font-bold text-white">{weather.windspeed} km/h</div>
+                    <p className="text-stone-400 mt-1">Viento</p>
+                  </div>
+                </div>
+
+                <h4 className="text-xs font-bold uppercase tracking-widest text-blue-400 mb-4">Pronóstico 24h</h4>
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-4 max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
+                  {forecast.map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center p-3 bg-stone-800/50 rounded-2xl border border-stone-800/50">
+                      <span className="text-[10px] font-bold text-stone-500 mb-2">{item.time}</span>
+                      {getWeatherIcon(item.code, 20)}
+                      <span className="text-sm font-bold text-white mt-2">{Math.round(item.temp)}°</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-6 bg-stone-800/30 text-center">
+                <button 
+                  onClick={() => setIsExpanded(false)}
+                  className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-600/20"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
@@ -714,8 +768,8 @@ export default function App() {
                   </div>
                 )}
                 <div className="hidden md:block">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Viajero</div>
-                  <div className="text-xs font-bold text-stone-800 dark:text-stone-200 truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400">Viajero</div>
+                  <div className="text-xs font-bold text-white truncate max-w-[100px]">{user.displayName?.split(' ')[0]}</div>
                 </div>
                 <button 
                   onClick={logout}
@@ -760,7 +814,7 @@ export default function App() {
                 >
                   <Logo className="w-full h-full" />
                 </motion.a>
-                <p className="text-stone-800 dark:text-stone-200 text-2xl max-w-3xl mx-auto font-medium">Tu compañero de viaje definitivo.</p>
+                <p className="text-white text-2xl max-w-3xl mx-auto font-bold drop-shadow-lg">Tu compañero de viaje definitivo.</p>
                 
                 {!user && (
                   <motion.div 
@@ -769,8 +823,8 @@ export default function App() {
                     transition={{ delay: 0.5 }}
                     className="mt-12 flex flex-col items-center gap-4"
                   >
-                    <div className="flex items-center gap-3 text-stone-500 dark:text-stone-400 text-sm mb-2">
-                      <Cloud size={16} className="text-blue-500" />
+                    <div className="flex items-center gap-3 text-stone-300 text-sm mb-2 font-bold">
+                      <Cloud size={16} className="text-blue-400" />
                       <span>Guarda tu viaje en la nube y accede desde cualquier lugar</span>
                     </div>
                     <GoogleButton onClick={signIn} className="scale-110 sm:scale-125 py-3 px-6 shadow-xl shadow-blue-900/10" />
@@ -780,8 +834,8 @@ export default function App() {
 
               <form onSubmit={handleSetupSubmit} className="glass-card p-6 sm:p-10 space-y-8 max-w-md mx-auto">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-900 dark:text-blue-400" /> Fecha de Llegada
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
+                    <Calendar size={14} className="text-blue-400" /> Fecha de Llegada
                   </label>
                   <input 
                     type="date" 
@@ -793,8 +847,8 @@ export default function App() {
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400 flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-900 dark:text-blue-400" /> Fecha de Regreso
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300 flex items-center gap-2">
+                    <Calendar size={14} className="text-blue-400" /> Fecha de Regreso
                   </label>
                   <input 
                     type="date" 
@@ -826,8 +880,8 @@ export default function App() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-serif text-3xl mb-1">Países a visitar</h2>
-                  <p className="text-stone-500">Indica qué países visitarás y en qué fechas.</p>
+                  <h2 className="font-serif text-3xl mb-1 text-white">Países a visitar</h2>
+                  <p className="text-stone-300 font-medium">Indica qué países visitarás y en qué fechas.</p>
                 </div>
                 <button 
                   onClick={addCountry}
@@ -841,11 +895,11 @@ export default function App() {
                 {trip.countries.map((country, idx) => (
                   <div key={country.id} className="glass-card p-8 flex flex-col md:flex-row gap-6 items-end md:items-center">
                     <div className="flex-1 w-full space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">País</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300">País</label>
                       <select 
                         value={country.name}
                         onChange={e => updateCountry(country.id, 'name', e.target.value)}
-                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-white text-black rounded-t-lg"
+                        className="w-full p-2 border-b-2 border-stone-700 focus:border-blue-400 outline-none transition-all text-xl font-bold bg-stone-900 text-white rounded-t-lg"
                       >
                         {Object.keys(EUROPE_DATA).map(c => (
                           <option key={c} value={c}>{c}</option>
@@ -853,11 +907,11 @@ export default function App() {
                       </select>
                     </div>
                     <div className="flex-1 w-full space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Ciudad</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Ciudad</label>
                       <select 
                         value={country.city}
                         onChange={e => updateCountry(country.id, 'city', e.target.value)}
-                        className="w-full p-2 border-b-2 border-stone-100 focus:border-blue-900 outline-none transition-all text-xl font-medium bg-white text-black rounded-t-lg"
+                        className="w-full p-2 border-b-2 border-stone-700 focus:border-blue-400 outline-none transition-all text-xl font-bold bg-stone-900 text-white rounded-t-lg"
                       >
                         {Object.keys(EUROPE_DATA[country.name]?.cities || {}).map(city => (
                           <option key={city} value={city}>{city}</option>
@@ -865,21 +919,21 @@ export default function App() {
                       </select>
                     </div>
                     <div className="w-full md:w-48 space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Desde</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Desde</label>
                       <input 
                         type="date" 
                         value={country.from}
                         onChange={e => updateCountry(country.id, 'from', e.target.value)}
-                        className="w-full p-3 rounded-xl border border-stone-100 bg-stone-50/50 text-sm outline-none focus:ring-2 focus:ring-blue-900/10"
+                        className="w-full p-3 rounded-xl border border-stone-700 bg-stone-800 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-500/20"
                       />
                     </div>
                     <div className="w-full md:w-48 space-y-3">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-stone-500 dark:text-stone-400">Hasta</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-blue-300">Hasta</label>
                       <input 
                         type="date" 
                         value={country.to}
                         onChange={e => updateCountry(country.id, 'to', e.target.value)}
-                        className="w-full p-3 rounded-xl border border-stone-100 bg-stone-50/50 text-sm outline-none focus:ring-2 focus:ring-blue-900/10"
+                        className="w-full p-3 rounded-xl border border-stone-700 bg-stone-800 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-500/20"
                       />
                     </div>
                     <button 
@@ -901,7 +955,7 @@ export default function App() {
               <div className="flex justify-between pt-8">
                 <button 
                   onClick={() => setStep('setup')}
-                  className="text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200 font-bold flex items-center gap-2 transition-colors"
+                  className="text-stone-400 hover:text-white font-bold flex items-center gap-2 transition-colors"
                 >
                   <ChevronLeft size={20} /> Atrás
                 </button>
@@ -982,7 +1036,7 @@ export default function App() {
 
                 <div className="glass-card p-8 md:col-span-2 flex flex-col justify-between border-stone-200">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-serif text-3xl text-stone-900 dark:text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
+                    <h3 className="font-serif text-3xl text-white">Hoy: {format(new Date(), 'EEEE, d MMMM', { locale: es })}</h3>
                     <div className="flex items-center gap-3">
                       {todayPlan && todayPlan.city !== 'Por definir' && (
                         <WeatherWidget city={todayPlan.city} country={todayPlan.country} />
@@ -1002,7 +1056,7 @@ export default function App() {
                         {todayPlan.activities.length > 0 ? (
                           todayPlan.activities.map(a => (
                             <div key={a.id} className="flex flex-col gap-2">
-                              <span className="px-4 py-2 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-2xl text-sm font-semibold text-stone-700 dark:text-stone-300 shadow-sm">
+                              <span className="px-4 py-2 bg-stone-800 border border-stone-700 rounded-2xl text-sm font-semibold text-stone-300 shadow-sm">
                                 <span className="text-blue-900 dark:text-blue-400 mr-2">{a.time}</span>
                                 {a.description || 'Sin descripción'}
                               </span>
@@ -1023,12 +1077,12 @@ export default function App() {
                             </div>
                           ))
                         ) : (
-                          <span className="text-stone-500 dark:text-stone-400 text-base italic">No hay actividades para hoy</span>
+                          <span className="text-stone-400 text-base italic font-bold">No hay actividades para hoy</span>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-stone-500 dark:text-stone-400 text-base italic py-4">No hay planes registrados para la fecha actual</div>
+                    <div className="text-stone-400 text-base italic py-4 font-bold">No hay planes registrados para la fecha actual</div>
                   )}
                 </div>
               </div>
@@ -1036,10 +1090,10 @@ export default function App() {
               {/* Map Section - Full Width */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-3xl text-stone-900 dark:text-white">Tu Ruta</h3>
-                  <div className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Visualización Geográfica</div>
+                  <h3 className="font-serif text-3xl text-white">Tu Ruta</h3>
+                  <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Visualización Geográfica</div>
                 </div>
-                <div className="h-[500px] w-full rounded-[2.5rem] overflow-hidden border border-stone-200 dark:border-stone-800 shadow-xl bg-stone-100 dark:bg-stone-900 relative">
+                <div className="h-[500px] w-full rounded-[2.5rem] overflow-hidden border border-stone-800 shadow-xl bg-stone-900 relative">
                   <TripMap key={`map-${step}-${trip.countries.length}`} countries={trip.countries} theme={theme} />
                 </div>
               </div>
@@ -1047,10 +1101,10 @@ export default function App() {
               {/* Stats Section - Below Map */}
               <div className="space-y-6 mt-16 relative z-10">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-3xl flex items-center gap-2 text-stone-900 dark:text-white">
+                  <h3 className="font-serif text-3xl flex items-center gap-2 text-white">
                     <BarChart3 className="text-blue-900 dark:text-blue-400" /> Distribución del Viaje
                   </h3>
-                  <div className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-widest">Días por País</div>
+                  <div className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Días por País</div>
                 </div>
                 <div className="glass-card p-8 min-h-[450px]">
                   {countryStats.length > 0 ? (
@@ -1130,7 +1184,7 @@ export default function App() {
                       height={400}
                     />
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-stone-500 dark:text-stone-400 italic text-sm">
+                    <div className="h-full flex flex-col items-center justify-center text-stone-400 italic text-sm font-bold">
                       <BarChart3 size={48} className="mb-4 opacity-20" />
                       Define tu ruta para ver estadísticas detalladas
                     </div>
@@ -1140,28 +1194,28 @@ export default function App() {
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4 border-t border-stone-200">
                 <div className="flex-1">
-                  <h2 className="font-serif text-3xl mb-2 text-stone-900 dark:text-white">Itinerario Detallado</h2>
-                  <div className="flex items-center gap-4 text-stone-500 dark:text-stone-400 text-sm">
-                    <span className="flex items-center gap-1"><Calendar size={14} /> {format(parseISO(trip.arrivalDate), 'd MMM yyyy', { locale: es })} - {format(parseISO(trip.departureDate), 'd MMM yyyy', { locale: es })}</span>
-                    <span className="flex items-center gap-1"><MapPin size={14} /> {trip.countries.length} países</span>
+                  <h2 className="font-serif text-3xl mb-2 text-white">Itinerario Detallado</h2>
+                  <div className="flex items-center gap-4 text-stone-300 font-bold text-sm">
+                    <span className="flex items-center gap-1"><Calendar size={14} className="text-blue-400" /> {format(parseISO(trip.arrivalDate), 'd MMM yyyy', { locale: es })} - {format(parseISO(trip.departureDate), 'd MMM yyyy', { locale: es })}</span>
+                    <span className="flex items-center gap-1"><MapPin size={14} className="text-blue-400" /> {trip.countries.length} países</span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Filters */}
-                  <div className="flex items-center gap-2 bg-stone-100 dark:bg-stone-800/50 p-1 rounded-2xl border border-stone-200 dark:border-stone-700">
-                    <div className="px-3 text-stone-500 dark:text-stone-400">
+                  <div className="flex items-center gap-2 bg-stone-800/50 p-1 rounded-2xl border border-stone-700">
+                    <div className="px-3 text-stone-300">
                       <Filter size={14} />
                     </div>
                     
-                    <select 
-                      value={filterDate}
-                      onChange={(e) => setFilterDate(e.target.value)}
-                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
-                    >
-                      <option key="default-date" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Fecha</option>
+                      <select 
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                        className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-blue-400 outline-none cursor-pointer py-2 pr-2"
+                      >
+                      <option key="default-date" value="" className="bg-stone-900 text-stone-200">Fecha</option>
                       {trip.dailyPlans.map((day, idx) => (
-                        <option key={`date-${day.date}-${idx}`} value={day.date} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">
+                        <option key={`date-${day.date}-${idx}`} value={day.date} className="bg-stone-900 text-stone-200">
                           {format(parseISO(day.date), 'd MMM', { locale: es })}
                         </option>
                       ))}
@@ -1172,11 +1226,11 @@ export default function App() {
                     <select 
                       value={filterCountry}
                       onChange={(e) => setFilterCountry(e.target.value)}
-                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-blue-400 outline-none cursor-pointer py-2 pr-2"
                     >
-                      <option key="default-country" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">País</option>
+                      <option key="default-country" value="" className="bg-stone-900 text-stone-200">País</option>
                       {Array.from(new Set(trip.dailyPlans.map(d => d.country))).filter(Boolean).map(country => (
-                        <option key={`country-${country}`} value={country} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{country}</option>
+                        <option key={`country-${country}`} value={country} className="bg-stone-900 text-stone-200">{country}</option>
                       ))}
                     </select>
 
@@ -1185,11 +1239,11 @@ export default function App() {
                     <select 
                       value={filterCity}
                       onChange={(e) => setFilterCity(e.target.value)}
-                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-stone-600 dark:text-stone-400 outline-none cursor-pointer py-2 pr-2"
+                      className="bg-transparent text-[10px] font-bold uppercase tracking-widest text-blue-400 outline-none cursor-pointer py-2 pr-2"
                     >
-                      <option key="default-city" value="" className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">Ciudad</option>
+                      <option key="default-city" value="" className="bg-stone-900 text-stone-200">Ciudad</option>
                       {Array.from(new Set(trip.dailyPlans.filter(d => !filterCountry || d.country === filterCountry).map(d => d.city))).filter(Boolean).map(city => (
-                        <option key={`city-${city}`} value={city} className="bg-white dark:bg-stone-900 text-stone-800 dark:text-stone-200">{city}</option>
+                        <option key={`city-${city}`} value={city} className="bg-stone-900 text-stone-200">{city}</option>
                       ))}
                     </select>
 
@@ -1257,8 +1311,8 @@ export default function App() {
                       {/* Date Sidebar */}
                       <div className="md:w-48 shrink-0">
                         <div className="sticky top-24">
-                          <div className="text-[10px] font-bold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-1">Día {originalIdx + 1}</div>
-                          <div className="font-serif text-2xl leading-tight mb-1 text-stone-900 dark:text-white">
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1">Día {originalIdx + 1}</div>
+                          <div className="font-serif text-2xl leading-tight mb-1 text-white">
                             {format(parseISO(day.date), 'EEEE, d', { locale: es })}
                           </div>
                           <div className="text-stone-500 dark:text-stone-300 text-sm capitalize">
@@ -1274,9 +1328,9 @@ export default function App() {
                       <div className="flex-1 space-y-4">
                         <div className="glass-card p-6">
                           <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                            <h4 className="font-bold text-white flex items-center gap-2">
                               Actividades
-                              <span className="text-[10px] font-normal text-stone-600 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                              <span className="text-[10px] font-bold text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full">
                                 {day.activities.length}
                               </span>
                             </h4>
@@ -1305,7 +1359,7 @@ export default function App() {
                                     placeholder="¿Qué planes tienes?"
                                     value={activity.description}
                                     onChange={e => updateActivity(day.date, activity.id, 'description', e.target.value)}
-                                    className="w-full bg-transparent outline-none text-stone-900 dark:text-white placeholder:text-stone-300 dark:placeholder:text-stone-600 focus:placeholder:text-stone-400"
+                                    className="w-full bg-transparent outline-none text-white placeholder:text-stone-600 focus:placeholder:text-stone-400"
                                   />
                                   
                                   {/* Attachments List */}
@@ -1436,7 +1490,7 @@ export default function App() {
                     referrerPolicy="no-referrer"
                   />
                 </div>
-                <h3 className="font-serif text-2xl mb-2 text-stone-800 dark:text-stone-200">¿Estás seguro?</h3>
+                <h3 className="font-serif text-2xl mb-2 text-stone-200">¿Estás seguro?</h3>
                 <p className="text-stone-500 dark:text-stone-400 mb-8">
                   Se borrarán todos los datos de tu viaje y volverás al inicio. Esta acción no se puede deshacer.
                 </p>
@@ -1479,7 +1533,7 @@ export default function App() {
                   <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-900 dark:text-blue-400">
                     {viewingAttachment.type === 'image' ? <ImageIcon size={20} /> : <FileText size={20} />}
                   </div>
-                  <h4 className="font-bold text-stone-800 dark:text-stone-200">{viewingAttachment.name}</h4>
+                  <h4 className="font-bold text-stone-200">{viewingAttachment.name}</h4>
                 </div>
                 <button 
                   onClick={() => setViewingAttachment(null)}
